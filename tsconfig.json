@@ -1,6 +1,5 @@
 {
 	"compilerOptions": {
-		// Обязательные настройки для roblox-ts
 		"allowSyntheticDefaultImports": true,
 		"downlevelIteration": true,
 		"jsx": "react",
@@ -18,7 +17,6 @@
 		"target": "ESNext",
 		"typeRoots": ["node_modules/@rbxts", "node_modules/@flamework"],
 
-		// Настройки путей
 		"rootDir": "src",
 		"outDir": "out",
 		"baseUrl": "src",
@@ -26,7 +24,6 @@
 			"*": ["*"]
 		},
 
-		// Настройки Flamework и ускорение сборки
 		"incremental": true,
 		"tsBuildInfoFile": "out/tsconfig.tsbuildinfo",
 		"plugins": [

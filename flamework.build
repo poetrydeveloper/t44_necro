@@ -5,7 +5,12 @@
 		"t44_necro:out/client/controllers/CameraController@CameraController": "client/controllers/CameraController@CameraController",
 		"t44_necro:out/client/controllers/MovementController@MovementController": "client/controllers/MovementController@MovementController",
 		"t44_necro:out/server/services/PlayerDataService@PlayerDataService": "server/services/PlayerDataService@PlayerDataService",
-		"t44_necro:out/server/services/GameService@GameService": "server/services/GameService@GameService"
+		"t44_necro:out/server/services/GameService@GameService": "server/services/GameService@GameService",
+		"t44_necro:out/server/services/EnemyService@EnemyService": "server/services/EnemyService@EnemyService",
+		"t44_necro:out/server/services/CombatService@CombatService": "server/services/CombatService@CombatService",
+		"t44_necro:out/client/controllers/AutoTargetController@AutoTargetController": "client/controllers/AutoTargetController@AutoTargetController",
+		"t44_necro:out/shared/networking/CombatNetworking@CombatNetworking": "shared/networking/CombatNetworking@CombatNetworking",
+		"t44_necro:out/shared/networking/CombatNetworking@GlobalEvents": "shared/networking/CombatNetworking@GlobalEvents"
 	},
 	"metadata": {}
 }
