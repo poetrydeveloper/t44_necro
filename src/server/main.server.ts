@@ -1,3 +1,8 @@
-import { makeHello } from "shared/module";
+import { Flamework } from "@flamework/core";
 
-print(makeHello("main.server.ts"));
+print("🏰 NECROMANCER ROGUELITE - СЕРВЕР ЗАПУСКАЕТСЯ");
+
+Flamework.addPaths("src/server/services");
+Flamework.ignite();
+
+print("✅ СЕРВЕР ГОТОВ");
