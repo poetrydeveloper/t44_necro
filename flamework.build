@@ -2,10 +2,10 @@
 	"version": 1,
 	"flameworkVersion": "1.3.2",
 	"identifiers": {
-		"t44_necro:out/server/services/GameService@GameService": "server/services/GameService@GameService",
 		"t44_necro:out/client/controllers/CameraController@CameraController": "client/controllers/CameraController@CameraController",
 		"t44_necro:out/client/controllers/MovementController@MovementController": "client/controllers/MovementController@MovementController",
-		"t44_necro:out/server/services/PlayerDataService@PlayerDataService": "server/services/PlayerDataService@PlayerDataService"
+		"t44_necro:out/server/services/PlayerDataService@PlayerDataService": "server/services/PlayerDataService@PlayerDataService",
+		"t44_necro:out/server/services/GameService@GameService": "server/services/GameService@GameService"
 	},
 	"metadata": {}
 }

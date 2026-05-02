@@ -11,6 +11,7 @@
 		"noLib": true,
 		"resolveJsonModule": true,
 		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
 		"forceConsistentCasingInFileNames": true,
 		"moduleDetection": "force",
 		"strict": true,
@@ -25,7 +26,7 @@
 			"*": ["*"]
 		},
 
-		// Настройки Flamework (Магия тут ✨)
+		// Настройки Flamework и ускорение сборки
 		"incremental": true,
 		"tsBuildInfoFile": "out/tsconfig.tsbuildinfo",
 		"plugins": [

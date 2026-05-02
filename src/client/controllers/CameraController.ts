@@ -7,49 +7,31 @@ export class CameraController implements OnStart {
 	private player = Players.LocalPlayer;
 	private rootPart?: BasePart;
 
-	private readonly OFFSET = new Vector3(0, 18, 22); // Чуть увеличил для лучшего обзора
-	private readonly LERP_SPEED = 12;
+	private readonly OFFSET = new Vector3(0, 18, 22);
+	private readonly SMOOTHNESS = 0.15; // Чем меньше, тем плавнее (0.05 - 0.2)
 
 	onStart() {
-		print("[CameraController] 📷 Система камеры запущена");
-
-		this.setupCamera();
-
+		this.camera.CameraType = Enum.CameraType.Scriptable;
+		
 		this.player.CharacterAdded.Connect((char) => this.onCharacterAdded(char));
 		if (this.player.Character) this.onCharacterAdded(this.player.Character);
 
-		// Используем BindToRenderStep для максимальной плавности (приоритет Camera)
-		RunService.BindToRenderStep(
-			"CameraUpdate",
-			Enum.RenderPriority.Camera.Value,
-			(dt) => this.update(dt)
-		);
-	}
-
-	private setupCamera() {
-		this.camera.CameraType = Enum.CameraType.Scriptable;
-		this.camera.FieldOfView = 75;
+		// Используем BindToRenderStep с приоритетом ПОСЛЕ персонажа
+		RunService.BindToRenderStep("CameraUpdate", Enum.RenderPriority.Camera.Value, () => {
+			this.updateCamera();
+		});
 	}
 
 	private onCharacterAdded(character: Model) {
-		// Ждем RootPart аккуратно
-		this.rootPart = character.WaitForChild("HumanoidRootPart", 5) as BasePart;
-		
-		if (this.rootPart) {
-			// Мгновенно перемещаем камеру в начальную точку, чтобы не было "пролета" через всю карту
-			const targetPos = this.rootPart.Position.add(this.OFFSET);
-			this.camera.CFrame = CFrame.lookAt(targetPos, this.rootPart.Position);
-		}
+		this.rootPart = character.WaitForChild("HumanoidRootPart", 10) as BasePart;
 	}
 
-	private update(dt: number) {
-		if (!this.rootPart || !this.rootPart.Parent) return;
+	private updateCamera() {
+		if (!this.rootPart) return;
 
-		const targetPos = this.rootPart.Position.add(this.OFFSET);
-		const targetCframe = CFrame.lookAt(targetPos, this.rootPart.Position);
-
-		// Плавная интерполяция с защитой от больших скачков dt
-		const alpha = math.clamp(dt * this.LERP_SPEED, 0, 1);
-		this.camera.CFrame = this.camera.CFrame.Lerp(targetCframe, alpha);
+		const targetCFrame = CFrame.lookAt(this.rootPart.Position.add(this.OFFSET), this.rootPart.Position);
+		
+		// Самый стабильный Lerp, который не зависит от FPS и не дрожит
+		this.camera.CFrame = this.camera.CFrame.Lerp(targetCFrame, this.SMOOTHNESS);
 	}
 }
