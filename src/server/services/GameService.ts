@@ -11,21 +11,16 @@ export class GameService implements OnStart {
 	) {}
 
 	onStart() {
-		print("[GameService] 🏰 Сервис игры запущен (Стандартный режим)");
-
-		// ВОЗВРАЩАЕМ ГЕРОЯ ПО УМОЛЧАНИЮ
+		print("[GameService] 🏰 Сервис игры запущен");
 		Players.CharacterAutoLoads = true;
 
 		Players.PlayerAdded.Connect((player) => this.onPlayerAdded(player));
-		
-		// Для тех, кто уже в игре (при перезагрузке скрипта)
 		for (const player of Players.GetPlayers()) {
 			this.onPlayerAdded(player);
 		}
 	}
 
 	private async onPlayerAdded(player: Player) {
-		// Ждём загрузки данных игрока
 		let data = this.playerDataService.getPlayerData(player);
 		let attempts = 0;
 		while (!data && attempts < 50) {
@@ -34,12 +29,10 @@ export class GameService implements OnStart {
 			attempts++;
 		}
 
-		// Когда персонаж появится в мире
 		player.CharacterAdded.Connect((character) => {
 			this.onCharacterSpawned(player, character);
 		});
 
-		// Если персонаж уже есть
 		if (player.Character) {
 			this.onCharacterSpawned(player, player.Character);
 		}
@@ -51,15 +44,31 @@ export class GameService implements OnStart {
 
 		print(`[GameService] 🧙 ${player.Name} готов к бою!`);
 
-		// Телепортируем на спавн, если нужно
 		const spawnPos = this.getSpawnPosition();
 		character.PivotTo(spawnPos);
 
-		// ТЕСТОВЫЙ СПАВН ВРАГА
-		task.delay(3, () => {
-			const enemyPos = rootPart.Position.add(new Vector3(15, 0, 15));
-			this.enemyService.spawnEnemy("skeleton", enemyPos);
-			print("[GameService] ⚔️ Тестовый скелет заспавнен рядом со стандартным ГГ");
+		// Спавн живого скелета в 20 стедах от игрока
+		task.delay(2, () => {
+			const playerPos = rootPart.Position;
+			const aliveSkeletonPos = new Vector3(
+				playerPos.X + 20,
+				playerPos.Y,
+				playerPos.Z + 20
+			);
+			this.enemyService.spawnSkeleton(aliveSkeletonPos);
+			print("[GameService] ⚔️ Живой скелет заспавнен рядом");
+		});
+
+		// Спавн мёртвого скелета (трупа) в 10 стедах от игрока
+		task.delay(2.5, () => {
+			const playerPos = rootPart.Position;
+			const corpsePos = new Vector3(
+				playerPos.X + 10,
+				playerPos.Y,
+				playerPos.Z + 15
+			);
+			this.enemyService.spawnCorpseAt(corpsePos);
+			print("[GameService] 💀 Мёртвый скелет (труп) заспавнен рядом");
 		});
 	}
 
