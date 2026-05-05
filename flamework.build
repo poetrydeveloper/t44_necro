@@ -17,7 +17,11 @@
 		"t44_necro:out/server/components/LifeComponent@LifeComponent": "server/components/LifeComponent@LifeComponent",
 		"t44_necro:out/client/components/ProjectileComponent@ProjectileComponent": "client/components/ProjectileComponent@ProjectileComponent",
 		"t44_necro:out/server/components/ProjectileComponent@ProjectileComponent": "server/components/ProjectileComponent@ProjectileComponent",
-		"t44_necro:out/client/controllers/ProjectileVisualController@ProjectileVisualController": "client/controllers/ProjectileVisualController@ProjectileVisualController"
+		"t44_necro:out/client/controllers/ProjectileVisualController@ProjectileVisualController": "client/controllers/ProjectileVisualController@ProjectileVisualController",
+		"t44_necro:out/client/components/CorpseHighlightComponent@CorpseHighlightComponent": "client/components/CorpseHighlightComponent@CorpseHighlightComponent",
+		"t44_necro:out/server/components/CorpseComponent@CorpseComponent": "server/components/CorpseComponent@CorpseComponent",
+		"t44_necro:out/server/services/ResurrectionService@ResurrectionService": "server/services/ResurrectionService@ResurrectionService",
+		"t44_necro:out/shared/networking/CorpseNetworking@CorpseNetworking": "shared/networking/CorpseNetworking@CorpseNetworking"
 	},
 	"metadata": {}
 }

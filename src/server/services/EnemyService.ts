@@ -1,15 +1,14 @@
 import { Service, OnStart, Dependency } from "@flamework/core";
-import { Components } from "@flamework/components"; // Импортируем типы компонентов
+import { Components } from "@flamework/components";
 import { Workspace, HttpService, ReplicatedStorage, Players, CollectionService } from "@rbxts/services";
 import { EnemyPresets, EnemyData } from "shared/types/EnemyTypes";
 import { EnemyComponent } from "server/components/EnemyComponent";
 import { LifeComponent } from "server/components/LifeComponent";
+import { CorpseComponent } from "server/components/CorpseComponent";
 
 @Service({})
 export class EnemyService implements OnStart {
 	private skeletonTemplate?: Model;
-	
-	// Используем официальный макрос Flamework для получения сервиса компонентов
 	private components = Dependency<Components>();
 
 	onStart() {
@@ -36,7 +35,6 @@ export class EnemyService implements OnStart {
 
 		this.skeletonTemplate = template.Clone();
 		this.skeletonTemplate.Parent = ReplicatedStorage;
-
 		print("[EnemyService] ✅ Шаблон SkeletonWarrior загружен");
 	}
 
@@ -47,21 +45,21 @@ export class EnemyService implements OnStart {
 		let nearest: EnemyComponent | undefined;
 		let nearestDist = maxDistance;
 
-		// Используем this.components вместо componentService
 		const enemies = this.components.getAllComponents<EnemyComponent>(EnemyComponent);
 
 		for (const enemy of enemies) {
 			const life = this.components.getComponent<LifeComponent>(enemy.instance);
 			if (!life || !life.isAlive()) continue;
 
-			const dist = enemy.rootPart.Position.sub(position).Magnitude;
+			const root = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!root) continue;
 
+			const dist = root.Position.sub(position).Magnitude;
 			if (dist < nearestDist) {
 				nearestDist = dist;
 				nearest = enemy;
 			}
 		}
-
 		return nearest;
 	}
 
@@ -80,7 +78,7 @@ export class EnemyService implements OnStart {
 		const id = HttpService.GenerateGUID(false);
 		model.Name = `${preset.modelName}_${id.sub(1, 6)}`;
 
-		const humanoid = model.FindFirstChildOfClass("Humanoid");
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
 		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
 
 		if (!humanoid || !root) {
@@ -108,7 +106,7 @@ export class EnemyService implements OnStart {
 		this.startEnemyAI(model, humanoid, root, preset);
 
 		// Смерть
-		humanoid.Died.Connect(() => this.onEnemyDeath(model));
+		humanoid.Died.Connect(() => this.onEnemyDeath(model, preset.modelName));
 
 		return model;
 	}
@@ -133,7 +131,6 @@ export class EnemyService implements OnStart {
 					if (!char || !pRoot) continue;
 
 					const dist = root.Position.sub(pRoot.Position).Magnitude;
-
 					if (dist < nearestDist) {
 						nearestDist = dist;
 						target = char;
@@ -141,17 +138,14 @@ export class EnemyService implements OnStart {
 				}
 
 				if (!target) continue;
-
 				const targetRoot = target.PrimaryPart;
 				if (!targetRoot) continue;
 
 				if (nearestDist <= preset.attackRange) {
 					humanoid.MoveTo(root.Position);
-
 					const now = os.clock();
 					if (now - lastAttack >= cooldown) {
 						lastAttack = now;
-
 						const life = this.components.getComponent<LifeComponent>(target);
 						if (life) {
 							life.takeDamage(preset.damage);
@@ -164,32 +158,67 @@ export class EnemyService implements OnStart {
 		});
 	}
 
-	private onEnemyDeath(model: Model) {
-		const pos = model.GetPivot().Position;
-		print(`[EnemyService] 💀 ${model.Name} убит`);
-		this.spawnCorpseAt(pos);
+	// =========================
+	// 💀 СМЕРТЬ ВРАГА → ТРУП
+	// =========================
+	private onEnemyDeath(model: Model, templateId: string) {
+		print(`[EnemyService] 💀 ${model.Name} убит → превращаем в труп`);
 
-		task.delay(2, () => {
-			if (model.Parent) model.Destroy();
-		});
+		// 1. Удаляем старые теги
+		CollectionService.RemoveTag(model, "Enemy");
+		CollectionService.RemoveTag(model, "HasHealth");
+
+		// 2. 🛠 ВАЖНО: Сначала устанавливаем атрибуты, ПОТОМ добавляем тег
+		// Так как тег триггерит создание CorpseComponent, и он прочитает атрибуты в onStart
+		model.SetAttribute("templateId", templateId);
+		model.SetAttribute("spawnTime", os.clock());
+
+		// 3. Добавляем тег трупа → Flamework создаст CorpseComponent автоматически
+		CollectionService.AddTag(model, "Corpse");
+
+		// 4. Визуальные изменения "смерти"
+		this.makeCorpseVisuals(model);
+
+		// 5. Отключаем логику врага
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+		if (humanoid) {
+			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
+			humanoid.BreakJointsOnDeath = false; // Не ломать модель при смерти
+		}
+
+		// 6. Удаляем скрипты и части, которые не нужны трупу (оптимизация)
+		// Можно удалить, если они мешают или нагружают
+		// model.FindFirstChild("AttackHitbox")?.Destroy();
 	}
 
-	public spawnCorpseAt(position: Vector3): BasePart {
-		const corpse = new Instance("Part");
-		corpse.Name = "Corpse";
-		corpse.Size = new Vector3(3, 0.5, 3);
-		corpse.Color = Color3.fromRGB(70, 70, 70);
-		corpse.Material = Enum.Material.Slate;
-		corpse.Anchored = true;
-		corpse.CanCollide = false;
-		corpse.Position = position.sub(new Vector3(0, 2.5, 0));
+	private makeCorpseVisuals(model: Model) {
+		// Делаем модель "мёртвой" визуально
+		for (const child of model.GetDescendants()) {
+			if (child.IsA("BasePart")) {
+				// Серый цвет для всех частей
+				child.Color = Color3.fromRGB(80, 80, 80);
+				child.Material = Enum.Material.Concrete;
+				child.CanCollide = false; // Не блокировать проход
+				// Можно добавить прозрачность, если хочешь "призрачный" труп
+				// child.Transparency = 0.3;
+			}
+			// Удаляем ненужные эффекты
+			if (child.IsA("ParticleEmitter") || child.IsA("Light")) {
+				child.Destroy();
+			}
+		}
 
-		const folder = Workspace.FindFirstChild("World")?.FindFirstChild("Corpses") as Folder;
-		corpse.Parent = folder ?? Workspace;
-
-		corpse.SetAttribute("IsCorpse", true);
-		corpse.SetAttribute("SoulWeight", 50);
-
-		return corpse;
+		// Добавляем маркер "это труп" (опционально, для отладки)
+		const marker = new Instance("Part");
+		marker.Name = "CorpseIndicator";
+		marker.Shape = Enum.PartType.Cylinder;
+		marker.Size = new Vector3(0.3, 0.5, 0.3);
+		marker.Color = Color3.fromRGB(100, 100, 255);
+		marker.Material = Enum.Material.Neon;
+		marker.Anchored = true;
+		marker.CanCollide = false;
+		marker.Transparency = 0.5;
+		marker.CFrame = model.GetPivot().add(new Vector3(0, 3, 0));
+		marker.Parent = model;
 	}
 }

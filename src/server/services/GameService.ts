@@ -66,7 +66,7 @@ export class GameService implements OnStart {
 		task.delay(2.5, () => {
 			const playerPos = rootPart.Position;
 			const corpsePos = playerPos.add(new Vector3(10, 0, 15));
-			this.enemyService.spawnCorpseAt(corpsePos);
+			
 			print("[DEBUG] 💀 Мёртвый скелет (труп) заспавнен рядом");
 		});
 	}

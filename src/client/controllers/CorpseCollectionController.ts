@@ -1,177 +1,129 @@
-import { Controller, OnStart } from "@flamework/core";
-import { Players, Workspace, UserInputService } from "@rbxts/services";
-
-interface CorpseCard {
-	corpse: BasePart;
-	soulWeight: number;
-}
+import { Controller, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, UserInputService, RunService, CollectionService } from "@rbxts/services";
+import { CorpseNetworking } from "shared/networking/CorpseNetworking";
 
 @Controller({})
 export class CorpseCollectionController implements OnStart {
 	private player = Players.LocalPlayer;
-	private rootPart?: BasePart;
-	private currentCorpseInRange: BasePart | undefined;
-	private cardVisible = false;
-	private cardGui?: ScreenGui;
-	private holdStartTime = 0;
+	private events = CorpseNetworking.createClient({});
+	private components = Dependency<Components>();
+
 	private isHolding = false;
-	private readonly COLLECTION_RADIUS = 20;
-	private readonly HOLD_DURATION = 1; // 1 секунда зажатия
-	
+	private currentTargetCorpse?: Model;
+	private progressGui?: ScreenGui;
+	private progressBar?: Frame;
+	private progressLabel?: TextLabel;
+
 	onStart() {
-		print("[CorpseCollectionController] 💀 Система сбора трупов запущена");
-		
-		// Создаём UI для карточки
-		this.createCardUI();
-		
-		// Отслеживаем персонажа
-		this.player.CharacterAdded.Connect((char) => {
-			this.rootPart = char.WaitForChild("HumanoidRootPart", 5) as BasePart;
-		});
-		
-		if (this.player.Character) {
-			this.rootPart = this.player.Character.WaitForChild("HumanoidRootPart", 5) as BasePart;
-		}
-		
-		// Основной цикл проверки радиуса
-		task.spawn(() => {
-			while (task.wait(0.1)) {
-				this.checkForCorpses();
-			}
-		});
-		
-		// Обработка зажатия кнопки
-		UserInputService.InputBegan.Connect((input) => {
-			if (input.UserInputType === Enum.UserInputType.MouseButton1 && this.currentCorpseInRange) {
+		print("[CorpseCollection] 💀 Система сбора запущена");
+		this.setupUI();
+		this.setupInput();
+		this.setupProximityCheck();
+	}
+
+	private setupUI() {
+		this.progressGui = new Instance("ScreenGui");
+		this.progressGui.Name = "ResurrectionUI";
+		this.progressGui.ResetOnSpawn = false;
+		this.progressGui.IgnoreGuiInset = true;
+		this.progressGui.Parent = this.player.WaitForChild("PlayerGui");
+
+		this.progressBar = new Instance("Frame");
+		this.progressBar.Name = "ProgressBar";
+		this.progressBar.Size = new UDim2(0.3, 0, 0.05, 0);
+		this.progressBar.Position = new UDim2(0.5, -0.15, 0.8, 0);
+		this.progressBar.BackgroundColor3 = new Color3(0.15, 0.15, 0.15);
+		this.progressBar.BorderSizePixel = 0;
+		this.progressBar.Visible = false;
+		this.progressBar.Parent = this.progressGui;
+
+		const fill = new Instance("Frame");
+		fill.Name = "Fill";
+		fill.Size = new UDim2(0, 0, 1, 0);
+		fill.BackgroundColor3 = Color3.fromRGB(138, 43, 226);
+		fill.BorderSizePixel = 0;
+		fill.Parent = this.progressBar;
+
+		this.progressLabel = new Instance("TextLabel");
+		this.progressLabel.Name = "Label";
+		this.progressLabel.Size = new UDim2(1, 0, 1, 0);
+		this.progressLabel.BackgroundTransparency = 1;
+		this.progressLabel.Text = "Зажми E для воскрешения";
+		this.progressLabel.TextColor3 = new Color3(1, 1, 1);
+		this.progressLabel.TextSize = 14;
+		this.progressLabel.Font = Enum.Font.GothamSemibold;
+		this.progressLabel.Parent = this.progressBar;
+	}
+
+	private setupInput() {
+		UserInputService.InputBegan.Connect((input, gameProcessed) => {
+			if (gameProcessed) return;
+			if (input.KeyCode === Enum.KeyCode.E) {
 				this.startHold();
 			}
 		});
-		
 		UserInputService.InputEnded.Connect((input) => {
-			if (input.UserInputType === Enum.UserInputType.MouseButton1) {
-				this.cancelHold();
+			if (input.KeyCode === Enum.KeyCode.E) {
+				this.stopHold();
 			}
 		});
 	}
-	
-	private createCardUI() {
-		this.cardGui = new Instance("ScreenGui");
-		this.cardGui.Name = "CorpseCardGui";
-		this.cardGui.Parent = this.player.FindFirstChild("PlayerGui") || this.player;
-		
-		const frame = new Instance("Frame");
-		frame.Name = "CardFrame";
-		frame.Size = new UDim2(0, 200, 0, 100);
-		frame.Position = new UDim2(0.5, -100, 0.7, 0);
-		frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40);
-		frame.BackgroundTransparency = 1;
-		frame.BorderSizePixel = 0;
-		frame.Parent = this.cardGui;
-		
-		const title = new Instance("TextLabel");
-		title.Name = "Title";
-		title.Size = new UDim2(1, 0, 0.5, 0);
-		title.BackgroundTransparency = 1;
-		title.Text = "Мёртвый скелет";
-		title.TextColor3 = Color3.fromRGB(255, 200, 100);
-		title.TextScaled = true;
-		title.Font = Enum.Font.GothamBold;
-		title.Parent = frame;
-		
-		const subtitle = new Instance("TextLabel");
-		subtitle.Name = "Subtitle";
-		subtitle.Size = new UDim2(1, 0, 0.4, 0);
-		subtitle.Position = new UDim2(0, 0, 0.5, 0);
-		subtitle.BackgroundTransparency = 1;
-		subtitle.Text = "Зажмите ЛКМ для воскрешения";
-		subtitle.TextColor3 = Color3.fromRGB(200, 200, 200);
-		subtitle.TextSize = 14;
-		subtitle.Font = Enum.Font.Gotham;
-		subtitle.Parent = frame;
-		
-		const progressBar = new Instance("Frame");
-		progressBar.Name = "ProgressBar";
-		progressBar.Size = new UDim2(0, 0, 0.1, 0);
-		progressBar.Position = new UDim2(0, 0, 0.9, 0);
-		progressBar.BackgroundColor3 = Color3.fromRGB(100, 200, 100);
-		progressBar.BackgroundTransparency = 0.5;
-		progressBar.Parent = frame;
-	}
-	
-	private checkForCorpses() {
-		if (!this.rootPart) return;
-		
-		const corpsesParent = Workspace.FindFirstChild("Corpses") || Workspace;
-		let nearestCorpse: BasePart | undefined;
-		let nearestDist = this.COLLECTION_RADIUS;
-		
-		for (const child of corpsesParent.GetChildren()) {
-			if (child.IsA("Part") && child.Name === "Corpse") {
-				const dist = child.Position.sub(this.rootPart.Position).Magnitude;
-				if (dist < nearestDist) {
-					nearestDist = dist;
-					nearestCorpse = child;
+
+	private setupProximityCheck() {
+		RunService.RenderStepped.Connect(() => {
+			const root = this.player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!root) return;
+
+			let nearest: Model | undefined;
+			let minDist = 20;
+
+			const corpses = CollectionService.GetTagged("Corpse");
+			for (const corpse of corpses) {
+				if (!corpse.IsA("Model")) continue;
+				const dist = root.Position.sub(corpse.GetPivot().Position).Magnitude;
+				if (dist < minDist) {
+					minDist = dist;
+					nearest = corpse as Model;
 				}
 			}
-		}
-		
-		this.currentCorpseInRange = nearestCorpse;
-		this.updateCardVisibility(nearestCorpse !== undefined);
+
+			this.currentTargetCorpse = nearest;
+			if (this.progressLabel) {
+				this.progressLabel.Text = nearest ? "🕯 Зажми E" : "";
+			}
+		});
+
+		this.events.updateProgress.connect((percent) => {
+			if (this.progressBar) {
+				const fill = this.progressBar.FindFirstChild("Fill") as Frame;
+				if (fill) fill.Size = new UDim2(percent, 0, 1, 0);
+			}
+		});
+
+		this.events.resurrectionSuccess.connect(() => {
+			if (this.progressBar) this.progressBar.Visible = false;
+			this.isHolding = false;
+		});
+
+		this.events.resurrectionFailed.connect((reason) => {
+			if (this.progressBar) this.progressBar.Visible = false;
+			this.isHolding = false;
+			print(`[Client] ❌ Воскрешение прервано: ${reason}`);
+		});
 	}
-	
-	private updateCardVisibility(visible: boolean) {
-		if (visible === this.cardVisible) return;
-		this.cardVisible = visible;
-		
-		const frame = this.cardGui?.FindFirstChild("CardFrame") as Frame;
-		if (frame) {
-			frame.BackgroundTransparency = visible ? 0.7 : 1;
-		}
-	}
-	
+
 	private startHold() {
+		if (!this.currentTargetCorpse || this.isHolding) return;
 		this.isHolding = true;
-		this.holdStartTime = os.clock();
-		
-		task.spawn(() => {
-			while (this.isHolding && this.currentCorpseInRange) {
-				task.wait(0.05);
-				const elapsed = os.clock() - this.holdStartTime;
-				const progress = math.min(elapsed / this.HOLD_DURATION, 1);
-				
-				const progressBar = this.cardGui?.FindFirstChild("CardFrame")?.FindFirstChild("ProgressBar") as Frame;
-				if (progressBar) {
-					progressBar.Size = new UDim2(progress, 0, 0.1, 0);
-				}
-				
-				if (elapsed >= this.HOLD_DURATION) {
-					this.collectCorpse();
-					break;
-				}
-			}
-		});
+		if (this.progressBar) this.progressBar.Visible = true;
+		this.events.requestResurrection.fire(this.currentTargetCorpse.Name);
 	}
-	
-	private cancelHold() {
+
+	private stopHold() {
+		if (!this.isHolding) return;
 		this.isHolding = false;
-		const progressBar = this.cardGui?.FindFirstChild("CardFrame")?.FindFirstChild("ProgressBar") as Frame;
-		if (progressBar) {
-			progressBar.Size = new UDim2(0, 0, 0.1, 0);
-		}
-	}
-	
-	private collectCorpse() {
-		if (!this.currentCorpseInRange) return;
-		
-		const soulWeight = this.currentCorpseInRange.GetAttribute("SoulWeight") || 50;
-		print(`[CorpseCollectionController] 💀 Подобран труп! Вес души: ${soulWeight}`);
-		
-		// Отправляем событие на сервер
-		// (пока просто логируем, позже добавим сетевой вызов)
-		
-		this.currentCorpseInRange.Destroy();
-		this.currentCorpseInRange = undefined;
-		this.updateCardVisibility(false);
-		this.cancelHold();
+		if (this.progressBar) this.progressBar.Visible = false;
+		this.events.cancelResurrection.fire();
 	}
 }
