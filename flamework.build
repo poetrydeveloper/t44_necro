@@ -14,7 +14,10 @@
 		"t44_necro:out/client/controllers/CorpseCollectionController@CorpseCollectionController": "client/controllers/CorpseCollectionController@CorpseCollectionController",
 		"t44_necro:out/client/components/EnemyHealthBar@EnemyHealthBar": "client/components/EnemyHealthBar@EnemyHealthBar",
 		"t44_necro:out/server/components/EnemyComponent@EnemyComponent": "server/components/EnemyComponent@EnemyComponent",
-		"t44_necro:out/server/components/LifeComponent@LifeComponent": "server/components/LifeComponent@LifeComponent"
+		"t44_necro:out/server/components/LifeComponent@LifeComponent": "server/components/LifeComponent@LifeComponent",
+		"t44_necro:out/client/components/ProjectileComponent@ProjectileComponent": "client/components/ProjectileComponent@ProjectileComponent",
+		"t44_necro:out/server/components/ProjectileComponent@ProjectileComponent": "server/components/ProjectileComponent@ProjectileComponent",
+		"t44_necro:out/client/controllers/ProjectileVisualController@ProjectileVisualController": "client/controllers/ProjectileVisualController@ProjectileVisualController"
 	},
 	"metadata": {}
 }

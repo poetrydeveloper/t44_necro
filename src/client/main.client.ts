@@ -7,6 +7,7 @@ print("--------------------------------------------------");
 
 Flamework.addPaths("src/client/controllers");
 Flamework.addPaths("src/client/managers");
+Flamework.addPaths("src/client/components");
 
 Flamework.ignite();
 
