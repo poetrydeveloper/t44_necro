@@ -50,7 +50,7 @@ export interface Card {
 export interface Collection {
     maxSoulWeight: number;
     currentSoulWeight: number;
-    cards: Record<string, Card>;
+    cards: Card[];
     activeStack: Card[];
 }
 

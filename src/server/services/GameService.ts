@@ -1,5 +1,5 @@
 import { Service, OnStart } from "@flamework/core";
-import { Players, Workspace } from "@rbxts/services";
+import { Players, Workspace, RunService } from "@rbxts/services";
 import { PlayerDataService } from "./PlayerDataService";
 import { EnemyService } from "./EnemyService";
 
@@ -14,20 +14,20 @@ export class GameService implements OnStart {
 		print("[GameService] 🏰 Сервис игры запущен");
 		Players.CharacterAutoLoads = true;
 
-		Players.PlayerAdded.Connect((player) => this.onPlayerAdded(player));
+		// Используем сигнал вместо цикла while
+		this.playerDataService.onDataLoaded.Connect((player) => {
+			this.onPlayerReady(player);
+		});
+
+		// На случай, если игрок зашел в микросекунду до подписки
 		for (const player of Players.GetPlayers()) {
-			this.onPlayerAdded(player);
+			const data = this.playerDataService.getPlayerData(player);
+			if (data) this.onPlayerReady(player);
 		}
 	}
 
-	private async onPlayerAdded(player: Player) {
-		let data = this.playerDataService.getPlayerData(player);
-		let attempts = 0;
-		while (!data && attempts < 50) {
-			task.wait(0.1);
-			data = this.playerDataService.getPlayerData(player);
-			attempts++;
-		}
+	private onPlayerReady(player: Player) {
+		print(`[GameService] ✅ Игрок ${player.Name} загружен и готов.`);
 
 		player.CharacterAdded.Connect((character) => {
 			this.onCharacterSpawned(player, character);
@@ -42,38 +42,40 @@ export class GameService implements OnStart {
 		const rootPart = character.WaitForChild("HumanoidRootPart", 5) as BasePart;
 		if (!rootPart) return;
 
-		print(`[GameService] 🧙 ${player.Name} готов к бою!`);
-
 		const spawnPos = this.getSpawnPosition();
 		character.PivotTo(spawnPos);
+		print(`[GameService] 🧙 ${player.Name} телепортирован на спавн.`);
 
-		// Спавн живого скелета в 20 стедах от игрока
+		// Дебаг-спавн запускаем только в Studio
+		if (RunService.IsStudio()) {
+			this.spawnDebugEnemies(rootPart);
+		}
+	}
+
+	/**
+	 * Вынесенный дебаг-код для тестов в Studio
+	 */
+	private spawnDebugEnemies(rootPart: BasePart) {
 		task.delay(2, () => {
 			const playerPos = rootPart.Position;
-			const aliveSkeletonPos = new Vector3(
-				playerPos.X + 20,
-				playerPos.Y,
-				playerPos.Z + 20
-			);
+			const aliveSkeletonPos = playerPos.add(new Vector3(20, 0, 20));
 			this.enemyService.spawnSkeleton(aliveSkeletonPos);
-			print("[GameService] ⚔️ Живой скелет заспавнен рядом");
+			print("[DEBUG] ⚔️ Живой скелет заспавнен рядом");
 		});
 
-		// Спавн мёртвого скелета (трупа) в 10 стедах от игрока
 		task.delay(2.5, () => {
 			const playerPos = rootPart.Position;
-			const corpsePos = new Vector3(
-				playerPos.X + 10,
-				playerPos.Y,
-				playerPos.Z + 15
-			);
+			const corpsePos = playerPos.add(new Vector3(10, 0, 15));
 			this.enemyService.spawnCorpseAt(corpsePos);
-			print("[GameService] 💀 Мёртвый скелет (труп) заспавнен рядом");
+			print("[DEBUG] 💀 Мёртвый скелет (труп) заспавнен рядом");
 		});
 	}
 
 	private getSpawnPosition(): CFrame {
-		const wellSpawn = Workspace.FindFirstChild("World")?.FindFirstChild("Locations")?.FindFirstChild("WellSpawn") as BasePart;
+		const world = Workspace.FindFirstChild("World");
+		const locations = world?.FindFirstChild("Locations");
+		const wellSpawn = locations?.FindFirstChild("WellSpawn") as BasePart;
+
 		if (wellSpawn) {
 			return wellSpawn.CFrame.add(new Vector3(0, 5, 0));
 		}

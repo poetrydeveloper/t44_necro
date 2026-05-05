@@ -10,27 +10,40 @@
 				"$path": "include",
 				"node_modules": {
 					"$className": "Folder",
-					"@rbxts": {
-						"$path": "node_modules/@rbxts"
-					},
 					"@flamework": {
 						"$path": "node_modules/@flamework"
+					},
+					"@rbxts": {
+						"$path": "node_modules/@rbxts"
 					}
 				}
 			},
-			"TS": { "$path": "out/shared" }
+			"TS": { 
+				"$path": "out/shared" 
+			}
 		},
 
 		"ServerScriptService": {
 			"$className": "ServerScriptService",
-			"TS": { "$path": "out/server" }
+			"TS": { 
+				"$path": "out/server" 
+			}
+		},
+
+		"ServerStorage": {
+			"$className": "ServerStorage",
+			"Models": {
+				"$path": "assets/models"
+			}
 		},
 
 		"StarterPlayer": {
 			"$className": "StarterPlayer",
 			"StarterPlayerScripts": {
 				"$className": "StarterPlayerScripts",
-				"TS": { "$path": "out/client" }
+				"TS": { 
+					"$path": "out/client" 
+				}
 			}
 		},
 
@@ -38,6 +51,17 @@
 			"$className": "Workspace",
 			"World": {
 				"$className": "Folder",
+				"Locations": {
+					"$className": "Folder",
+					"WellSpawn": {
+						"$className": "Part",
+						"$properties": {
+							"Anchored": true,
+							"CanCollide": false,
+							"Transparency": 0.5
+						}
+					}
+				},
 				"Enemies": { "$className": "Folder" },
 				"Corpses": { "$className": "Folder" },
 				"Projectiles": { "$className": "Folder" }

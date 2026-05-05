@@ -1,53 +1,79 @@
-import { Service, OnStart } from "@flamework/core";
-import { GameConfig } from "shared/constants/GameConfig";
-import { CombatNetworking } from "shared/networking/CombatNetworking";
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, RunService } from "@rbxts/services";
 import { EnemyService } from "./EnemyService";
-import { PlayerDataService } from "./PlayerDataService";
-import { EnemyData } from "shared/types/EnemyTypes";
+import { EnemyComponent } from "server/components/EnemyComponent";
+import { LifeComponent } from "server/components/LifeComponent";
+import { CombatNetworking } from "shared/networking/CombatNetworking";
+
+interface CombatState {
+	nextAttackTime: number;
+}
 
 @Service({})
 export class CombatService implements OnStart {
-    // Явно создаем серверную часть нетворкинга
-    private events = CombatNetworking.createServer({});
+	private autoAttackPlayers = new Set<number>();
+	private combatStates = new Map<number, CombatState>();
+	
+	// Инициализируем серверные события через метод createServer
+	private events = CombatNetworking.createServer({});
 
-    constructor(
-        private readonly enemyService: EnemyService,
-        private readonly playerDataService: PlayerDataService,
-    ) {}
+	private readonly ATTACK_RANGE = 40;
+	private readonly BASE_ATTACK_COOLDOWN = 1.0;
 
-    onStart() {
-        print("[CombatService] ⚔️ Боевая система запущена");
+	private components = Dependency<Components>();
 
-        this.events.requestNearestEnemy.connect((player: Player, range: number) => {
-            const char = player.Character;
-            const rootPart = char?.PrimaryPart;
-            if (!rootPart) return;
+	constructor(private readonly enemyService: EnemyService) {}
 
-            const nearest = this.enemyService.getNearestEnemy(rootPart.Position, range);
-            if (nearest) {
-                this.events.updateNearestEnemy.fire(player, nearest.instance.Name, nearest.data);
-            } else {
-                this.events.updateNearestEnemy.fire(player, undefined, undefined);
-            }
-        });
+	onStart() {
+		print("[CombatService] 🔥 Боевая система запущена");
 
-        this.events.attackEnemy.connect((player: Player, enemyId: string) => {
-            const enemy = this.enemyService.getEnemyById(enemyId);
-            const character = player.Character;
+		// Подключаемся к событию через созданный объект events
+		this.events.setAutoAttackState.connect((player: Player, state: boolean) => {
+			if (state) {
+				this.autoAttackPlayers.add(player.UserId);
+				print(`[CombatService] 🎯 Авто-атака ВКЛ для ${player.Name}`);
+			} else {
+				this.autoAttackPlayers.delete(player.UserId);
+				this.combatStates.delete(player.UserId);
+				print(`[CombatService] ⭕ Авто-атака ВЫКЛ для ${player.Name}`);
+			}
+		});
 
-            if (!enemy || !character?.PrimaryPart) return;
+		RunService.Heartbeat.Connect(() => this.onHeartbeat());
+	}
 
-            const distance = character.PrimaryPart.Position.sub(enemy.rootPart.Position).Magnitude;
-            if (distance > GameConfig.spells.fireball.castRange + 5) return;
+	private onHeartbeat() {
+		const now = os.clock();
 
-            enemy.humanoid.TakeDamage(GameConfig.spells.fireball.damage);
-            
-            if (enemy.humanoid.Health <= 0) {
-                this.playerDataService.updatePlayerData(player, (data) => {
-                    data.gold += enemy.data.rewardGold;
-                    data.stats.experience += enemy.data.rewardExp;
-                });
-            }
-        });
-    }
+		for (const userId of this.autoAttackPlayers) {
+			const player = Players.GetPlayerByUserId(userId);
+			const character = player?.Character;
+			const root = character?.PrimaryPart;
+
+			if (!player || !character || !root) continue;
+
+			let state = this.combatStates.get(userId);
+			if (!state) {
+				state = { nextAttackTime: 0 };
+				this.combatStates.set(userId, state);
+			}
+
+			if (now < state.nextAttackTime) continue;
+
+			const target = this.enemyService.getNearestEnemy(root.Position, this.ATTACK_RANGE);
+			if (!target || !target.instance.Parent) continue;
+
+			this.performAttack(player, target);
+			state.nextAttackTime = now + this.BASE_ATTACK_COOLDOWN;
+		}
+	}
+
+	private performAttack(player: Player, target: EnemyComponent) {
+		const life = this.components.getComponent<LifeComponent>(target.instance);
+		if (life && life.isAlive()) {
+			print(`[Combat] 🪄 ${player.Name} атакует ${target.instance.Name}`);
+			life.takeDamage(10);
+		}
+	}
 }

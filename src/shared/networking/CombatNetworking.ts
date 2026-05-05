@@ -1,28 +1,17 @@
 import { Networking } from "@flamework/networking";
-import { EnemyData } from "shared/types/EnemyTypes";
 
 /**
- * События, отправляемые КЛИЕНТОМ на СЕРВЕР
+ * События сетевого взаимодействия для боевой системы.
  */
 interface ServerEvents {
-	/** Запрос на поиск ближайшего врага */
-	requestNearestEnemy(range: number): void;
-	/** Запрос на атаку конкретного врага */
-	attackEnemy(enemyId: string): void;
+	/** Клиент сообщает серверу: включить (true) или выключить (false) авто-атаку */
+	setAutoAttackState(state: boolean): void;
 }
 
-/**
- * События, отправляемые СЕРВЕРОМ на КЛИЕНТ
- */
 interface ClientEvents {
-	/** Обновление данных о текущей цели */
-	updateNearestEnemy(enemyId: string | undefined, enemyData: EnemyData | undefined): void;
+	/** Сервер сообщает клиенту: проиграй эффект удара или звука */
+	playHitEffect(position: Vector3): void;
 }
 
-/**
- * Создание сетевого моста.
- * Мы экспортируем это как константу. 
- * В коде сервисов/контроллеров используй .createClient({}) или .createServer({})
- * для получения доступа к методам без ошибок типизации.
- */
+// Экспортируем константу для использования в сервисах и контроллерах
 export const CombatNetworking = Networking.createEvent<ServerEvents, ClientEvents>();

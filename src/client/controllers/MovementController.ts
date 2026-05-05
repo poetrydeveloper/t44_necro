@@ -7,21 +7,34 @@ export class MovementController implements OnStart {
 	private character?: Model;
 	private humanoid?: Humanoid;
 	
-	private currentTarget?: Vector3;
 	private moveConnection?: RBXScriptConnection;
 	private raycastParams = new RaycastParams();
 
 	onStart() {
-		print("[MovementController] 🚶 Система движения готова");
+		print("[MovementController] 🏃 Ручное управление готово");
 		
 		this.setupRaycast();
 		
 		this.player.CharacterAdded.Connect((char) => this.onCharacterAdded(char));
 		if (this.player.Character) this.onCharacterAdded(this.player.Character);
 		
+		// ЕДИНЫЙ слушатель ввода
 		UserInputService.InputBegan.Connect((input, processed) => {
 			if (processed) return;
-			
+
+			// 1. Остановка при нажатии WASD
+			const keyCode = input.KeyCode;
+			if (
+				keyCode === Enum.KeyCode.W || 
+				keyCode === Enum.KeyCode.A || 
+				keyCode === Enum.KeyCode.S || 
+				keyCode === Enum.KeyCode.D
+			) {
+				this.Stop();
+				return;
+			}
+
+			// 2. Движение по клику мыши или тапу
 			const isClick = input.UserInputType === Enum.UserInputType.MouseButton1;
 			const isTouch = input.UserInputType === Enum.UserInputType.Touch;
 			
@@ -56,13 +69,12 @@ export class MovementController implements OnStart {
 	private moveTo(position: Vector3) {
 		if (!this.humanoid) return;
 		
-		this.currentTarget = position;
+		this.moveConnection?.Disconnect();
+		
 		this.humanoid.MoveTo(position);
 		this.showMarker(position);
 		
-		this.moveConnection?.Disconnect();
 		this.moveConnection = this.humanoid.MoveToFinished.Connect(() => {
-			this.currentTarget = undefined;
 			this.moveConnection?.Disconnect();
 		});
 	}
@@ -70,32 +82,29 @@ export class MovementController implements OnStart {
 	private showMarker(position: Vector3) {
 		const marker = new Instance("Part");
 		marker.Name = "MoveEffect";
-		marker.Shape = Enum.PartType.Cylinder; // Цилиндр выглядит лучше для круга под ногами
-		marker.Size = new Vector3(0.2, 2, 2);
-		marker.Color = Color3.fromRGB(170, 85, 255); // Фиолетовый некромант
+		marker.Shape = Enum.PartType.Cylinder; 
+		marker.Size = new Vector3(0.1, 1.5, 1.5);
+		marker.Color = Color3.fromRGB(170, 85, 255); 
 		marker.Material = Enum.Material.Neon;
 		marker.Anchored = true;
 		marker.CanCollide = false;
 		
-		// Кладем цилиндр плашмя на землю
-		marker.CFrame = new CFrame(position.add(new Vector3(0, 0.1, 0))).mul(CFrame.Angles(0, 0, math.rad(90)));
+		marker.CFrame = new CFrame(position.add(new Vector3(0, 0.05, 0))).mul(CFrame.Angles(0, 0, math.rad(90)));
 		marker.Parent = Workspace;
 
-		// Плавная анимация исчезновения
-		const tween = TweenService.Create(marker, new TweenInfo(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		const tween = TweenService.Create(marker, new TweenInfo(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size: new Vector3(0, 0, 0),
 			Transparency: 1
 		});
 		
 		tween.Play();
-		Debris.AddItem(marker, 0.6); // Авто-удаление
+		Debris.AddItem(marker, 0.4);
 	}
 
 	public Stop() {
-		const root = this.character?.PrimaryPart;
-		if (this.humanoid && root) {
-			this.humanoid.MoveTo(root.Position);
-			this.currentTarget = undefined;
+		this.moveConnection?.Disconnect();
+		if (this.humanoid && this.character?.PrimaryPart) {
+			this.humanoid.MoveTo(this.character.PrimaryPart.Position);
 		}
 	}
 }

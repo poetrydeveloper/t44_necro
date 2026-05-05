@@ -1,9 +1,9 @@
 import { Service, OnStart } from "@flamework/core";
 import { Players, DataStoreService } from "@rbxts/services";
+import { Signal } from "@rbxts/lemon-signal";
 import { GameConfig } from "shared/constants/GameConfig";
 import { NecromancerStats } from "shared/types/GameTypes";
 
-// Выносим интерфейс, чтобы другие сервисы могли его импортировать
 export interface PlayerData {
 	userId: number;
 	stats: NecromancerStats;
@@ -16,76 +16,126 @@ export interface PlayerData {
 export class PlayerDataService implements OnStart {
 	private dataStore = DataStoreService.GetDataStore("NecromancerData_v1");
 	private playerDataMap = new Map<number, PlayerData>();
-	
+	private dirtyPlayers = new Set<number>();
+
+	// Сигнал для других сервисов (например, GameService)
+	public readonly onDataLoaded = new Signal<(player: Player, data: PlayerData) => void>();
+
 	onStart() {
 		print("[PlayerDataService] 💾 Система сохранений запущена");
-		
+
 		Players.PlayerAdded.Connect((player) => this.loadPlayerData(player));
+
 		Players.PlayerRemoving.Connect((player) => {
 			this.savePlayerData(player);
 			this.playerDataMap.delete(player.UserId);
+			this.dirtyPlayers.delete(player.UserId);
 		});
-		
-		// Авто-сохранение (безопасный цикл)
+
 		task.spawn(() => {
 			while (task.wait(60)) {
-				this.saveAllPlayers();
+				this.saveDirtyPlayers();
 			}
 		});
 	}
-	
+
+	private reconcile(source: object, template: object): object {
+		for (const [key, value] of pairs(template)) {
+			const sourceValue = (source as Record<string, unknown>)[key as string];
+
+			if (sourceValue === undefined) {
+				(source as Record<string, unknown>)[key as string] = value;
+			} else if (typeIs(value, "table") && typeIs(sourceValue, "table")) {
+				this.reconcile(sourceValue as object, value as object);
+			}
+		}
+		return source;
+	}
+
+	private createDefaultData(player: Player): PlayerData {
+		return {
+			userId: player.UserId,
+			stats: { ...GameConfig.startingStats },
+			gold: 0,
+			soulEssence: 0,
+			currentRun: 1,
+		};
+	}
+
 	private async loadPlayerData(player: Player) {
 		const userId = player.UserId;
 		const key = `User_${userId}`;
-		
-		// В TS pcall возвращает массив: [success, result]
+		const template = this.createDefaultData(player);
+
 		const [success, data] = pcall(() => this.dataStore.GetAsync(key));
-		
+
+		let finalData: PlayerData;
+
 		if (success && data !== undefined) {
-			const parsed = data as PlayerData;
-			// Важно: мерджим со стартовыми статами на случай обновления конфига
-			this.playerDataMap.set(userId, parsed);
-			print(`[PlayerDataService] 📥 Данные загружены: ${player.Name}`);
+			finalData = this.reconcile(data as PlayerData, template) as PlayerData;
+			print(`[PlayerDataService] 📥 Данные синхронизированы для: ${player.Name}`);
 		} else {
-			const newData: PlayerData = {
-				userId: userId,
-				stats: { ...GameConfig.startingStats },
-				gold: 0,
-				soulEssence: 0,
-				currentRun: 1,
-			};
-			this.playerDataMap.set(userId, newData);
-			print(`[PlayerDataService] 🆕 Создан профиль: ${player.Name}`);
+			finalData = template;
+			print(`[PlayerDataService] 🆕 Создан профиль для: ${player.Name}`);
 		}
+
+		this.playerDataMap.set(userId, finalData);
+		this.onDataLoaded.Fire(player, finalData);
 	}
-	
+
+	private saveDirtyPlayers() {
+		if (this.dirtyPlayers.size() === 0) return;
+
+		print(`[PlayerDataService] 🔃 Авто-сохранение ${this.dirtyPlayers.size()} игроков...`);
+		for (const userId of this.dirtyPlayers) {
+			const player = Players.GetPlayerByUserId(userId);
+			if (player) {
+				this.savePlayerData(player);
+			}
+		}
+		this.dirtyPlayers.clear();
+	}
+
 	private savePlayerData(player: Player) {
 		const userId = player.UserId;
 		const data = this.playerDataMap.get(userId);
-		
+
 		if (data) {
 			const [success, err] = pcall(() => this.dataStore.SetAsync(`User_${userId}`, data));
-			if (!success) warn(`[PlayerDataService] ❌ Ошибка сохранения ${player.Name}: ${err}`);
+			if (success) {
+				this.dirtyPlayers.delete(userId);
+			} else {
+				warn(`[PlayerDataService] ❌ Ошибка DataStore для ${player.Name}: ${err}`);
+			}
 		}
 	}
-	
-	private saveAllPlayers() {
-		for (const player of Players.GetPlayers()) {
-			this.savePlayerData(player);
-		}
-	}
-	
+
 	public getPlayerData(player: Player): PlayerData | undefined {
 		return this.playerDataMap.get(player.UserId);
 	}
 
-	// Удобный метод для изменения данных (например, добавить золото)
 	public updatePlayerData(player: Player, updater: (data: PlayerData) => void) {
 		const data = this.playerDataMap.get(player.UserId);
 		if (data) {
 			updater(data);
-			// В Flamework данные обновляются по ссылке, но можно перестраховаться:
-			this.playerDataMap.set(player.UserId, data);
+			this.dirtyPlayers.add(player.UserId);
 		}
 	}
 }
+
+/**
+ * ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ:
+ * 
+ * 1. Получение данных (только чтение):
+ *    const data = this.playerDataService.getPlayerData(player);
+ * 
+ * 2. Изменение данных (ОБЯЗАТЕЛЬНО через updatePlayerData):
+ *    this.playerDataService.updatePlayerData(player, (data) => {
+ *        data.gold += 100;
+ *        data.stats.strength += 5;
+ *    });
+ * 
+ * Почему это важно:
+ * - updatePlayerData автоматически ставит игрока в очередь на сохранение (Dirty Flag).
+ * - Если менять данные напрямую через getPlayerData, авто-сейв их проигнорирует.
+ */
