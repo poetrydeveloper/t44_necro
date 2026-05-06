@@ -1,3 +1,4 @@
+// src/server/services/EnemyService.ts
 import { Service, OnStart, Dependency } from "@flamework/core";
 import { Components } from "@flamework/components";
 import { Workspace, HttpService, ReplicatedStorage, Players, CollectionService } from "@rbxts/services";
@@ -97,7 +98,23 @@ export class EnemyService implements OnStart {
 		humanoid.WalkSpeed = preset.walkSpeed;
 
 		model.PrimaryPart = root;
-		model.PivotTo(new CFrame(position));
+
+		// 🛠 ИСПРАВЛЕНИЕ: Ищем землю через Raycast, чтобы враг не висел в воздухе
+		const rayParams = new RaycastParams();
+		rayParams.FilterDescendantsInstances = [model];
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		
+		const rayOrigin = position.add(new Vector3(0, 10, 0));
+		const rayDirection = new Vector3(0, -20, 0);
+		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
+		
+		// Если земля найдена — ставим на неё, иначе используем исходную позицию
+		// +2.5 по Y, чтобы модель не провалилась в пол
+		const finalPos = rayResult 
+			? new Vector3(position.X, rayResult.Position.Y + 2.5, position.Z)
+			: position;
+
+		model.PivotTo(new CFrame(finalPos));
 
 		const folder = Workspace.FindFirstChild("World")?.FindFirstChild("Enemies") as Folder;
 		model.Parent = folder ?? Workspace;
@@ -185,7 +202,7 @@ export class EnemyService implements OnStart {
 		// 5. Отключаем Humanoid
 		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
 		if (humanoid) {
-			humanoid.BreakJointsOnDeath = false; // Не ломать модель при смерти
+			humanoid.BreakJointsOnDeath = false;
 			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
 		}
 	}
@@ -197,16 +214,16 @@ export class EnemyService implements OnStart {
 		rayParams.FilterDescendantsInstances = [model];
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
 		
-		const rayOrigin = spawnPos.add(new Vector3(0, 5, 0)); // Чуть выше, чтобы не застрять в полу
-		const rayDirection = new Vector3(0, -15, 0); // Ищем землю в радиусе 15 студов вниз
+		const rayOrigin = spawnPos.add(new Vector3(0, 5, 0));
+		const rayDirection = new Vector3(0, -15, 0);
 		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
 		
 		// Если земля найдена — ставим труп на неё, иначе оставляем как есть
 		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
 
 		// 🔄 Случайный поворот, чтобы трупы лежали по-разному (реалистичнее)
-		const randomRotY = math.random() * math.pi * 2; // Случайный угол по горизонтали
-		const fallAngle = math.rad(85 + math.random() * 10); // ~90° — "упал на бок"
+		const randomRotY = math.random() * math.pi * 2;
+		const fallAngle = math.rad(85 + math.random() * 10);
 		
 		// Поворачиваем и ставим на землю
 		model.PivotTo(
@@ -217,15 +234,11 @@ export class EnemyService implements OnStart {
 		// 🎨 Визуал смерти + фиксация на месте
 		for (const child of model.GetDescendants()) {
 			if (child.IsA("BasePart")) {
-				// Серый "мёртвый" цвет
 				child.Color = Color3.fromRGB(65, 65, 65);
 				child.Material = Enum.Material.Concrete;
-				
-				// ❗ Важно: анкорим, чтобы труп не дрожал и не проваливался
 				child.Anchored = true;
-				child.CanCollide = false; // Игрок может проходить сквозь труп
+				child.CanCollide = false;
 			}
-			// Удаляем ненужные эффекты (оптимизация)
 			if (child.IsA("ParticleEmitter") || child.IsA("Light") || child.IsA("Sound")) {
 				child.Destroy();
 			}
@@ -236,12 +249,12 @@ export class EnemyService implements OnStart {
 		marker.Name = "CorpseMarker";
 		marker.Shape = Enum.PartType.Cylinder;
 		marker.Size = new Vector3(0.2, 0.8, 0.2);
-		marker.Color = Color3.fromRGB(100, 150, 255); // Голубой неон
+		marker.Color = Color3.fromRGB(100, 150, 255);
 		marker.Material = Enum.Material.Neon;
 		marker.Anchored = true;
 		marker.CanCollide = false;
 		marker.Transparency = 0.3;
-		marker.CFrame = model.GetPivot().add(new Vector3(0, 2.5, 0)); // Парит над трупом
+		marker.CFrame = model.GetPivot().add(new Vector3(0, 2.5, 0));
 		marker.Parent = model;
 	}
 }

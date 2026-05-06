@@ -1,3 +1,4 @@
+// src/server/services/GameService.ts
 import { Service, OnStart } from "@flamework/core";
 import { Players, Workspace, RunService } from "@rbxts/services";
 import { PlayerDataService } from "./PlayerDataService";
@@ -54,20 +55,38 @@ export class GameService implements OnStart {
 
 	/**
 	 * Вынесенный дебаг-код для тестов в Studio
+	 * 🛠 ОБНОВЛЕНО: Спавним 10 врагов по кругу для теста ИИ
 	 */
 	private spawnDebugEnemies(rootPart: BasePart) {
-		task.delay(2, () => {
+		task.defer(() => {
 			const playerPos = rootPart.Position;
-			const aliveSkeletonPos = playerPos.add(new Vector3(20, 0, 20));
-			this.enemyService.spawnSkeleton(aliveSkeletonPos);
-			print("[DEBUG] ⚔️ Живой скелет заспавнен рядом");
-		});
+			const count = 10;       // Количество врагов
+			const radius = 30;      // Радиус круга (студы)
 
-		task.delay(2.5, () => {
-			const playerPos = rootPart.Position;
-			const corpsePos = playerPos.add(new Vector3(10, 0, 15));
-			
-			print("[DEBUG] 💀 Мёртвый скелет (труп) заспавнен рядом");
+			print(`[GameService] 🧪 Спавним ${count} тестовых врагов по кругу...`);
+
+			for (let i = 0; i < count; i++) {
+				// Вычисляем угол для равномерного распределения по кругу
+				const angle = (i / count) * math.pi * 2;
+				
+				// Вычисляем позицию: смещение по кругу + подъем на 5 студов, чтобы не в полу
+				const offset = new Vector3(math.cos(angle) * radius, 5, math.sin(angle) * radius);
+				const pos = playerPos.add(offset);
+
+				// Спавним врага
+				const enemy = this.enemyService.spawnSkeleton(pos);
+				
+				if (enemy) {
+					// 🛠 Немного увеличиваем здоровье для теста, чтобы бой был дольше
+					const humanoid = enemy.FindFirstChildOfClass("Humanoid") as Humanoid;
+					if (humanoid) {
+						humanoid.MaxHealth = 100;
+						humanoid.Health = 100;
+					}
+					print(`[GameService] ✅ Враг #${i+1} заспавнен`);
+				}
+			}
+			print(`[GameService] 🎯 Все ${count} врагов готовы к бою!`);
 		});
 	}
 
