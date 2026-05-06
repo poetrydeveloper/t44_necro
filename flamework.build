@@ -21,7 +21,13 @@
 		"t44_necro:out/client/components/CorpseHighlightComponent@CorpseHighlightComponent": "client/components/CorpseHighlightComponent@CorpseHighlightComponent",
 		"t44_necro:out/server/components/CorpseComponent@CorpseComponent": "server/components/CorpseComponent@CorpseComponent",
 		"t44_necro:out/server/services/ResurrectionService@ResurrectionService": "server/services/ResurrectionService@ResurrectionService",
-		"t44_necro:out/shared/networking/CorpseNetworking@CorpseNetworking": "shared/networking/CorpseNetworking@CorpseNetworking"
+		"t44_necro:out/shared/networking/CorpseNetworking@CorpseNetworking": "shared/networking/CorpseNetworking@CorpseNetworking",
+		"t44_necro:out/server/components/SummonComponent@SummonComponent": "server/components/SummonComponent@SummonComponent",
+		"t44_necro:out/server/systems/FollowSystem@FollowSystem": "server/systems/FollowSystem@FollowSystem",
+		"t44_necro:out/client/ui/TopStackPanel@TopStackPanel": "client/ui/TopStackPanel@TopStackPanel",
+		"t44_necro:out/server/systems/FollowSystem@FollowService": "server/systems/FollowSystem@FollowService",
+		"t44_necro:out/server/systems/FollowService@FollowService": "server/systems/FollowService@FollowService",
+		"t44_necro:out/server/services/FollowService@FollowService": "server/services/FollowService@FollowService"
 	},
 	"metadata": {}
 }

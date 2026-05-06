@@ -1,7 +1,9 @@
+// src/server/services/ResurrectionService.ts
 import { Service, OnStart, Dependency } from "@flamework/core";
 import { Components } from "@flamework/components";
-import { Players, Workspace, CollectionService } from "@rbxts/services";
+import { Players, Workspace, CollectionService, ReplicatedStorage, HttpService } from "@rbxts/services";
 import { CorpseComponent } from "server/components/CorpseComponent";
+import { SummonComponent } from "server/components/SummonComponent";
 import { CorpseNetworking } from "shared/networking/CorpseNetworking";
 
 @Service({})
@@ -41,7 +43,6 @@ export class ResurrectionService implements OnStart {
 
 		if (corpsesSet.size() <= limit) return;
 
-		// Собираем данные вручную (безопасно для roblox-ts)
 		const toSort: Array<{ inst: Instance; time: number }> = [];
 		for (const corpse of corpsesSet) {
 			const comp = this.components.getComponent<CorpseComponent>(corpse);
@@ -50,11 +51,8 @@ export class ResurrectionService implements OnStart {
 			}
 		}
 
-		// Сортировка: старые трупы (меньшее время) идут в начало
-		// Возвращаем boolean для совместимости с Luau table.sort
 		toSort.sort((a, b) => a.time < b.time);
 
-		// Удаляем лишние (через .size(), так как в roblox-ts массивы используют этот метод)
 		const total = toSort.size();
 		const removeCount = total - limit;
 
@@ -67,24 +65,21 @@ export class ResurrectionService implements OnStart {
 	}
 
 	// =========================
-	// 🔄 ЗАПРОС НА ВОСКРЕШЕНИЕ (ИСПРАВЛЕНО)
+	// 🔄 ЗАПРОС НА ВОСКРЕШЕНИЕ
 	// =========================
 	private handleResurrectionRequest(player: Player, corpseId: string) {
 		const userId = player.UserId;
 
-		// 1. Проверка кулдауна
 		if (this.playerCooldowns.has(userId) && os.clock() < (this.playerCooldowns.get(userId) || 0)) {
 			this.events.resurrectionFailed(player, "Кулдаун");
 			return;
 		}
 
-		// 2. Проверка лимита армии
 		if ((this.armyCounts.get(userId) || 0) >= this.MAX_ARMY) {
 			this.events.resurrectionFailed(player, "Лимит армии");
 			return;
 		}
 
-		// 🛠 3. Поиск трупа через CollectionService (работает в любой папке)
 		const corpses = CollectionService.GetTagged("Corpse");
 		let corpse: Model | undefined;
 		
@@ -95,36 +90,29 @@ export class ResurrectionService implements OnStart {
 			}
 		}
 
-		// 🛠 ВАЖНО: Явная проверка для TypeScript, чтобы сузить тип до 'Model'
 		if (!corpse) {
 			this.events.resurrectionFailed(player, "Труп не найден");
 			return;
 		}
 
-		// Теперь TypeScript знает, что corpse — это точно Model, а не undefined
 		const comp = this.components.getComponent<CorpseComponent>(corpse);
 		if (!comp) {
 			this.events.resurrectionFailed(player, "Труп не найден");
 			return;
 		}
 
-		// 4. Проверка маны (заглушка до Спринта 5)
 		const mana = this.getPlayerMana(player);
 		if (mana < this.MANA_COST) {
 			this.events.resurrectionFailed(player, "Недостаточно маны");
 			return;
 		}
 
-		// 5. Проверка дистанции (серверная валидация)
-		// 🛠 Теперь здесь нет ошибок: corpse гарантированно существует
 		const charRoot = player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
 		if (!charRoot || charRoot.Position.sub(corpse.GetPivot().Position).Magnitude > 20) {
 			this.events.resurrectionFailed(player, "Слишком далеко");
 			return;
 		}
 
-		// 6. Запуск процесса удержания
-		// 🛠 И здесь тоже: передаём валидную модель
 		this.startHoldProcess(player, corpse, comp);
 	}
 
@@ -145,7 +133,6 @@ export class ResurrectionService implements OnStart {
 			while (os.clock() - startTime < this.HOLD_DURATION) {
 				const charRoot = player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
 				
-				// Проверки: игрок на месте? труп существует? дистанция в норме?
 				if (!charRoot || !corpse.Parent || charRoot.Position.sub(corpse.GetPivot().Position).Magnitude > 20) {
 					this.events.resurrectionFailed(player, "Отошёл далеко или труп исчез");
 					this.events.updateProgress(player, 0);
@@ -159,7 +146,6 @@ export class ResurrectionService implements OnStart {
 				task.wait(0.1);
 			}
 
-			// 🎉 Успех
 			this.spawnSummon(player, comp);
 			this.events.resurrectionSuccess(player);
 			this.playerCooldowns.set(userId, os.clock() + this.COOLDOWN);
@@ -182,9 +168,57 @@ export class ResurrectionService implements OnStart {
 		
 		this.armyCounts.set(userId, (this.armyCounts.get(userId) || 0) + 1);
 		this.spendMana(player, this.MANA_COST);
+
+		const spawnPos = player.Character?.GetPivot().Position.add(new Vector3(5, 0, 0)) || new Vector3(0, 10, 0);
+		const summonModel = this.createSummonModel(comp.templateId, spawnPos);
 		
-		print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId}`);
-		// В Спринте 5 здесь будет вызов SpawnService.createSummon(...)
+		if (summonModel) {
+			summonModel.SetAttribute("OwnerId", userId);
+			summonModel.SetAttribute("TemplateId", comp.templateId);
+			summonModel.SetAttribute("SummonTime", os.clock());
+
+			CollectionService.AddTag(summonModel, "Summon");
+			
+			print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId}. Армия: ${this.armyCounts.get(userId)}/${this.MAX_ARMY}`);
+		}
+	}
+
+	// Вспомогательный метод для клонирования шаблона
+	private createSummonModel(templateId: string, position: Vector3): Model | undefined {
+		const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
+		
+		if (!template) {
+			warn("[ResurrectionService] ❌ Шаблон SkeletonWarrior не найден в ReplicatedStorage");
+			return undefined;
+		}
+
+		const model = template.Clone();
+		model.Name = `Summon_${templateId}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
+		
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+		
+		if (humanoid && root) {
+			// 🛠 ИСПРАВЛЕНИЕ: Не трогаем Anchored у всех частей! Это ломает суставы.
+			// Разанкориваем только корень, Humanoid сам управляет остальной физикой.
+			root.Anchored = false;
+			
+			// Отключаем разрушение суставов при смерти (на всякий случай)
+			humanoid.BreakJointsOnDeath = false;
+			
+			humanoid.MaxHealth = 50;
+			humanoid.Health = 50;
+			humanoid.WalkSpeed = 16;
+			
+			model.PrimaryPart = root;
+			model.PivotTo(new CFrame(position));
+			model.Parent = Workspace;
+			
+			// Заставляем Humanoid встать в стандартную позу, если модель "сломалась"
+			humanoid.ChangeState(Enum.HumanoidStateType.GettingUp);
+		}
+		
+		return model;
 	}
 
 	// =========================

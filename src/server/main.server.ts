@@ -6,7 +6,7 @@ print("🏰 NECROMANCER ROGUELITE - СЕРВЕР ЗАПУСКАЕТСЯ");
 import "./components/EnemyComponent";
 import "./components/LifeComponent";
 import "./components/CorpseComponent"; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
-
+import "./components/SummonComponent";
 // Добавляем пути для сервисов
 Flamework.addPaths("src/server/services");
 
