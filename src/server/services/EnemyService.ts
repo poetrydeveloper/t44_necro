@@ -164,7 +164,10 @@ export class EnemyService implements OnStart {
 	private onEnemyDeath(model: Model, templateId: string) {
 		print(`[EnemyService] 💀 ${model.Name} убит → превращаем в труп`);
 
-		// 1. Удаляем старые теги
+		// Сохраняем позицию для последующего "укладывания" на землю
+		const originalPos = model.GetPivot().Position;
+
+		// 1. Удаляем боевые теги
 		CollectionService.RemoveTag(model, "Enemy");
 		CollectionService.RemoveTag(model, "HasHealth");
 
@@ -176,49 +179,69 @@ export class EnemyService implements OnStart {
 		// 3. Добавляем тег трупа → Flamework создаст CorpseComponent автоматически
 		CollectionService.AddTag(model, "Corpse");
 
-		// 4. Визуальные изменения "смерти"
-		this.makeCorpseVisuals(model);
+		// 4. 🛠 НОВОЕ: Превращаем модель в "лежащий на земле" труп
+		this.transformToCorpse(model, originalPos);
 
-		// 5. Отключаем логику врага
+		// 5. Отключаем Humanoid
 		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
 		if (humanoid) {
-			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
 			humanoid.BreakJointsOnDeath = false; // Не ломать модель при смерти
+			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
 		}
-
-		// 6. Удаляем скрипты и части, которые не нужны трупу (оптимизация)
-		// Можно удалить, если они мешают или нагружают
-		// model.FindFirstChild("AttackHitbox")?.Destroy();
 	}
 
-	private makeCorpseVisuals(model: Model) {
-		// Делаем модель "мёртвой" визуально
+	// 🛠 НОВЫЙ МЕТОД: Физика и визуал "лежащего трупа"
+	private transformToCorpse(model: Model, spawnPos: Vector3) {
+		// 🌍 Raycast вниз, чтобы найти землю под трупом
+		const rayParams = new RaycastParams();
+		rayParams.FilterDescendantsInstances = [model];
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		
+		const rayOrigin = spawnPos.add(new Vector3(0, 5, 0)); // Чуть выше, чтобы не застрять в полу
+		const rayDirection = new Vector3(0, -15, 0); // Ищем землю в радиусе 15 студов вниз
+		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
+		
+		// Если земля найдена — ставим труп на неё, иначе оставляем как есть
+		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
+
+		// 🔄 Случайный поворот, чтобы трупы лежали по-разному (реалистичнее)
+		const randomRotY = math.random() * math.pi * 2; // Случайный угол по горизонтали
+		const fallAngle = math.rad(85 + math.random() * 10); // ~90° — "упал на бок"
+		
+		// Поворачиваем и ставим на землю
+		model.PivotTo(
+			new CFrame(new Vector3(spawnPos.X, groundY, spawnPos.Z))
+				.mul(CFrame.Angles(0, randomRotY, fallAngle))
+		);
+
+		// 🎨 Визуал смерти + фиксация на месте
 		for (const child of model.GetDescendants()) {
 			if (child.IsA("BasePart")) {
-				// Серый цвет для всех частей
-				child.Color = Color3.fromRGB(80, 80, 80);
+				// Серый "мёртвый" цвет
+				child.Color = Color3.fromRGB(65, 65, 65);
 				child.Material = Enum.Material.Concrete;
-				child.CanCollide = false; // Не блокировать проход
-				// Можно добавить прозрачность, если хочешь "призрачный" труп
-				// child.Transparency = 0.3;
+				
+				// ❗ Важно: анкорим, чтобы труп не дрожал и не проваливался
+				child.Anchored = true;
+				child.CanCollide = false; // Игрок может проходить сквозь труп
 			}
-			// Удаляем ненужные эффекты
-			if (child.IsA("ParticleEmitter") || child.IsA("Light")) {
+			// Удаляем ненужные эффекты (оптимизация)
+			if (child.IsA("ParticleEmitter") || child.IsA("Light") || child.IsA("Sound")) {
 				child.Destroy();
 			}
 		}
 
-		// Добавляем маркер "это труп" (опционально, для отладки)
+		// 📍 Неоновый маркер над трупом (для игрока)
 		const marker = new Instance("Part");
-		marker.Name = "CorpseIndicator";
+		marker.Name = "CorpseMarker";
 		marker.Shape = Enum.PartType.Cylinder;
-		marker.Size = new Vector3(0.3, 0.5, 0.3);
-		marker.Color = Color3.fromRGB(100, 100, 255);
+		marker.Size = new Vector3(0.2, 0.8, 0.2);
+		marker.Color = Color3.fromRGB(100, 150, 255); // Голубой неон
 		marker.Material = Enum.Material.Neon;
 		marker.Anchored = true;
 		marker.CanCollide = false;
-		marker.Transparency = 0.5;
-		marker.CFrame = model.GetPivot().add(new Vector3(0, 3, 0));
+		marker.Transparency = 0.3;
+		marker.CFrame = model.GetPivot().add(new Vector3(0, 2.5, 0)); // Парит над трупом
 		marker.Parent = model;
 	}
 }

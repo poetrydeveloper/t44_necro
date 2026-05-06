@@ -2,9 +2,10 @@ import { Flamework } from "@flamework/core";
 
 print("🏰 NECROMANCER ROGUELITE - СЕРВЕР ЗАПУСКАЕТСЯ");
 
-// ПРЯМОЙ ИМПОРТ КОМПОНЕНТОВ (решает проблему ArtificialDependency)
+// 🛠 ПРЯМЫЕ ИМПОРТЫ КОМПОНЕНТОВ
 import "./components/EnemyComponent";
 import "./components/LifeComponent";
+import "./components/CorpseComponent"; // <-- ДОБАВИТЬ ЭТУ СТРОКУ
 
 // Добавляем пути для сервисов
 Flamework.addPaths("src/server/services");
