@@ -9,7 +9,7 @@ print("🏰 NECROMANCER ROGUELITE - СЕРВЕР ЗАПУСКАЕТСЯ");
 import "./components/EnemyComponent";
 import "./components/LifeComponent";
 import "./components/CorpseComponent";
-import "./components/SummonComponent"; // ✅ УЖЕ ЕСТЬ (проверь)
+import "./components/SummonComponent";
 
 // =========================
 // 📦 ПРЯМЫЕ ИМПОРТЫ СЕРВИСОВ
@@ -20,7 +20,8 @@ import "./services/PlayerDataService";
 import "./services/CombatService";
 import "./services/ResurrectionService";
 import "./services/UnitBehaviorService";
-import "./services/UnitIndicatorService"; // ✅ ДОБАВЬ ЭТОТ
+import "./services/UnitIndicatorService";
+import "./services/StatsUpdateService";
 
 // Автоматическая регистрация
 Flamework.addPaths("src/server/services");
