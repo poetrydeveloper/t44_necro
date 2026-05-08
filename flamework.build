@@ -30,7 +30,9 @@
 		"t44_necro:out/server/services/FollowService@FollowService": "server/services/FollowService@FollowService",
 		"t44_necro:out/client/components/DamagePopupComponent@DamagePopupComponent": "client/components/DamagePopupComponent@DamagePopupComponent",
 		"t44_necro:out/server/services/AIAttackService@AIAttackService": "server/services/AIAttackService@AIAttackService",
-		"t44_necro:out/server/services/UnitBehaviorService@UnitBehaviorService": "server/services/UnitBehaviorService@UnitBehaviorService"
+		"t44_necro:out/server/services/UnitBehaviorService@UnitBehaviorService": "server/services/UnitBehaviorService@UnitBehaviorService",
+		"t44_necro:out/server/services/ProgressionService@ProgressionService": "server/services/ProgressionService@ProgressionService",
+		"t44_necro:out/server/services/UnitIndicatorService@UnitIndicatorService": "server/services/UnitIndicatorService@UnitIndicatorService"
 	},
 	"metadata": {}
 }

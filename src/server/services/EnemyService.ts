@@ -6,16 +6,18 @@ import { EnemyPresets, EnemyData } from "shared/types/EnemyTypes";
 import { EnemyComponent } from "server/components/EnemyComponent";
 import { LifeComponent } from "server/components/LifeComponent";
 import { CorpseComponent } from "server/components/CorpseComponent";
+import { ProgressionService } from "./ProgressionService";
 
 @Service({})
 export class EnemyService implements OnStart {
 	private skeletonTemplate?: Model;
 	private components = Dependency<Components>();
+	private pendingAttacks = new Map<Instance, number>();
+	private templateReady = false; // Флаг готовности
 
 	onStart() {
 		print("[EnemyService] 👹 Система врагов запущена");
-		task.wait(1);
-		this.loadTemplates();
+		this.loadTemplates(); // Убираем task.wait(1)
 	}
 
 	// =========================
@@ -36,6 +38,7 @@ export class EnemyService implements OnStart {
 
 		this.skeletonTemplate = template.Clone();
 		this.skeletonTemplate.Parent = ReplicatedStorage;
+		this.templateReady = true; // Шаблон загружен
 		print("[EnemyService] ✅ Шаблон SkeletonWarrior загружен");
 	}
 
@@ -65,11 +68,26 @@ export class EnemyService implements OnStart {
 	}
 
 	// =========================
+	// 📝 ЗАПИСЬ АТАКИ (ДЛЯ НАГРАДЫ)
+	// =========================
+	public recordAttackOnEnemy(enemy: Instance, playerUserId: number) {
+		this.pendingAttacks.set(enemy, playerUserId);
+	}
+
+	private getKillerUserId(enemy: Instance): number | undefined {
+		return this.pendingAttacks.get(enemy);
+	}
+
+	private clearAttacks(enemy: Instance) {
+		this.pendingAttacks.delete(enemy);
+	}
+
+	// =========================
 	// 🧟 СПАВН ВРАГА
 	// =========================
 	public spawnSkeleton(position: Vector3): Model | undefined {
-		if (!this.skeletonTemplate) {
-			warn("[EnemyService] ❌ Нет шаблона врага");
+		if (!this.templateReady || !this.skeletonTemplate) {
+			warn("[EnemyService] ❌ Шаблон ещё не загружен");
 			return;
 		}
 
@@ -99,7 +117,7 @@ export class EnemyService implements OnStart {
 
 		model.PrimaryPart = root;
 
-		// 🛠 ИСПРАВЛЕНИЕ: Ищем землю через Raycast, чтобы враг не висел в воздухе
+		// Raycast для земли
 		const rayParams = new RaycastParams();
 		rayParams.FilterDescendantsInstances = [model];
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
@@ -108,8 +126,6 @@ export class EnemyService implements OnStart {
 		const rayDirection = new Vector3(0, -20, 0);
 		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
 		
-		// Если земля найдена — ставим на неё, иначе используем исходную позицию
-		// +2.5 по Y, чтобы модель не провалилась в пол
 		const finalPos = rayResult 
 			? new Vector3(position.X, rayResult.Position.Y + 2.5, position.Z)
 			: position;
@@ -181,25 +197,40 @@ export class EnemyService implements OnStart {
 	private onEnemyDeath(model: Model, templateId: string) {
 		print(`[EnemyService] 💀 ${model.Name} убит → превращаем в труп`);
 
-		// Сохраняем позицию для последующего "укладывания" на землю
+		// 💰 Начисляем опыт убийце
+		const killerUserId = this.getKillerUserId(model);
+		if (killerUserId) {
+			const killer = Players.GetPlayerByUserId(killerUserId);
+			if (killer) {
+				try {
+					const progression = Dependency<ProgressionService>();
+					progression.grantExperience(killer, 50);
+					print(`[EnemyService] ✨ ${killer.Name} получил 50 опыта за убийство`);
+				} catch (e) {
+					warn("[EnemyService] ProgressionService не найден, опыт не начислен");
+				}
+			}
+		}
+		this.clearAttacks(model);
+
+		// Сохраняем позицию
 		const originalPos = model.GetPivot().Position;
 
-		// 1. Удаляем боевые теги
+		// Удаляем боевые теги
 		CollectionService.RemoveTag(model, "Enemy");
 		CollectionService.RemoveTag(model, "HasHealth");
 
-		// 2. 🛠 ВАЖНО: Сначала устанавливаем атрибуты, ПОТОМ добавляем тег
-		// Так как тег триггерит создание CorpseComponent, и он прочитает атрибуты в onStart
+		// Атрибуты для трупа
 		model.SetAttribute("templateId", templateId);
 		model.SetAttribute("spawnTime", os.clock());
 
-		// 3. Добавляем тег трупа → Flamework создаст CorpseComponent автоматически
+		// Тег трупа
 		CollectionService.AddTag(model, "Corpse");
 
-		// 4. 🛠 НОВОЕ: Превращаем модель в "лежащий на земле" труп
+		// Превращаем в лежащий труп
 		this.transformToCorpse(model, originalPos);
 
-		// 5. Отключаем Humanoid
+		// Отключаем Humanoid
 		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
 		if (humanoid) {
 			humanoid.BreakJointsOnDeath = false;
@@ -207,9 +238,10 @@ export class EnemyService implements OnStart {
 		}
 	}
 
-	// 🛠 НОВЫЙ МЕТОД: Физика и визуал "лежащего трупа"
+	// =========================
+	// 🪦 ТРАНСФОРМАЦИЯ В ТРУП
+	// =========================
 	private transformToCorpse(model: Model, spawnPos: Vector3) {
-		// 🌍 Raycast вниз, чтобы найти землю под трупом
 		const rayParams = new RaycastParams();
 		rayParams.FilterDescendantsInstances = [model];
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
@@ -218,20 +250,16 @@ export class EnemyService implements OnStart {
 		const rayDirection = new Vector3(0, -15, 0);
 		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
 		
-		// Если земля найдена — ставим труп на неё, иначе оставляем как есть
 		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
 
-		// 🔄 Случайный поворот, чтобы трупы лежали по-разному (реалистичнее)
 		const randomRotY = math.random() * math.pi * 2;
 		const fallAngle = math.rad(85 + math.random() * 10);
 		
-		// Поворачиваем и ставим на землю
 		model.PivotTo(
 			new CFrame(new Vector3(spawnPos.X, groundY, spawnPos.Z))
 				.mul(CFrame.Angles(0, randomRotY, fallAngle))
 		);
 
-		// 🎨 Визуал смерти + фиксация на месте
 		for (const child of model.GetDescendants()) {
 			if (child.IsA("BasePart")) {
 				child.Color = Color3.fromRGB(65, 65, 65);
@@ -244,7 +272,6 @@ export class EnemyService implements OnStart {
 			}
 		}
 
-		// 📍 Неоновый маркер над трупом (для игрока)
 		const marker = new Instance("Part");
 		marker.Name = "CorpseMarker";
 		marker.Shape = Enum.PartType.Cylinder;

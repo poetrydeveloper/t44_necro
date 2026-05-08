@@ -1,26 +1,27 @@
 import { Component, BaseComponent } from "@flamework/components";
 import { OnStart } from "@flamework/core";
-import { Players } from "@rbxts/services";
 
-export interface ProjectileData {
-	ownerId: number;
-	targetPosition: Vector3;
-	damage: number;
-	speed: number;
-	startTime: number;
+interface ProjectileAttributes {
+	OwnerId: number;
+	TargetPos: Vector3;
+	Speed: number;
 }
 
 @Component({
 	tag: "Projectile",
 })
-export class ProjectileComponent extends BaseComponent<ProjectileData, Model> implements OnStart {
+export class ProjectileComponent extends BaseComponent<ProjectileAttributes, Model> implements OnStart {
 	
 	onStart() {
-		// Логика при создании снаряда на сервере (если нужна)
+		// Компонент автоматически прочитает атрибуты OwnerId, TargetPos, Speed из модели
+		const ownerId = this.attributes.OwnerId;
+		const targetPos = this.attributes.TargetPos;
+		const speed = this.attributes.Speed;
+		
+		// print(`[ProjectileComponent] Снаряд создан игроком ${ownerId}, скорость ${speed}`);
 	}
 
-	// Этот метод вызовется автоматически при удалении компонента/инстанса
 	onDestroy() {
-		// Очистка ресурсов, если нужно
+		// Очистка
 	}
 }

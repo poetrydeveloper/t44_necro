@@ -114,56 +114,67 @@ export class ResurrectionService implements OnStart {
 	private cancelProcess(userId: number) { this.playerProcesses.delete(userId); }
 
 	private spawnSummon(player: Player, comp: CorpseComponent, corpse: Model) {
-		const userId = player.UserId;
-		this.armyCounts.set(userId, (this.armyCounts.get(userId) || 0) + 1);
-		this.spendMana(player, this.MANA_COST);
+	const userId = player.UserId;
+	this.armyCounts.set(userId, (this.armyCounts.get(userId) || 0) + 1);
+	this.spendMana(player, this.MANA_COST);
 
-		const spawnPos = player.Character?.GetPivot().Position.add(new Vector3(5, 0, 0)) || new Vector3(0, 10, 0);
-		const summonModel = this.createSummonModel(comp.templateId, spawnPos);
+	const spawnPos = player.Character?.GetPivot().Position.add(new Vector3(5, 0, 0)) || new Vector3(0, 10, 0);
+	const summonModel = this.createSummonModel(comp.templateId, spawnPos);
 
-		if (summonModel) {
-			// ИСПРАВЛЕНИЕ: Безопасный выбор случайного элемента массива без Math и .length
-			const weapons: WeaponType[] = ["RustySword", "BoneBlade", "SpectralDagger"];
-			
-			// math.random(1, n) возвращает целое число от 1 до n включительно
-			// Так как массивы в TS 0-based, берем индекс от 1 и вычитаем 1
-			const randomIndex = math.random(1, 3); 
-			const chosen = weapons[randomIndex - 1];
+	if (summonModel) {
+		const weapons: WeaponType[] = ["RustySword", "BoneBlade", "SpectralDagger"];
+		const randomIndex = math.random(1, 3);
+		const chosen = weapons[randomIndex - 1];
 
-			summonModel.SetAttribute("OwnerId", userId);
-			summonModel.SetAttribute("TemplateId", comp.templateId);
-			summonModel.SetAttribute("SummonTime", os.clock());
-			summonModel.SetAttribute("WeaponType", chosen);
+		// ✅ 1. СНАЧАЛА добавляем тег (триггерит создание SummonComponent)
+		CollectionService.AddTag(summonModel, "Summon");
+		
+		// ✅ 2. ПОТОМ устанавливаем атрибуты (компонент их прочитает в onStart)
+		summonModel.SetAttribute("OwnerId", userId);
+		summonModel.SetAttribute("TemplateId", comp.templateId);
+		summonModel.SetAttribute("SummonTime", os.clock());
+		summonModel.SetAttribute("WeaponType", chosen);
 
-			this.addCrimsonEyes(summonModel);
-			CollectionService.AddTag(summonModel, "Summon");
+		this.addCrimsonEyes(summonModel);
 
-			// 🗑 УДАЛЯЕМ ТРУП после воскрешения
-			if (corpse.Parent) corpse.Destroy();
+		// Удаляем труп
+		if (corpse.Parent) corpse.Destroy();
 
-			print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId} [${chosen}]. Армия: ${this.armyCounts.get(userId)}/${this.MAX_ARMY}`);
+		print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId} [${chosen}]. Армия: ${this.armyCounts.get(userId)}/${this.MAX_ARMY}`);
+		
+		// 🛠 ОТЛАДКА: проверяем, создался ли компонент
+		task.wait(0.1);
+		const checkComp = this.components.getComponent<SummonComponent>(summonModel);
+		if (checkComp) {
+			print(`[Resurrection] ✅ Component SummonComponent найден для ${summonModel.Name}`);
+		} else {
+			warn(`[Resurrection] ❌ Component SummonComponent НЕ создан для ${summonModel.Name}`);
 		}
+	}
 	}
 
 	private createSummonModel(templateId: string, position: Vector3): Model | undefined {
-		const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
-		if (!template) { warn("[ResurrectionService] ❌ Шаблон не найден"); return undefined; }
+	const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
+	if (!template) { warn("[ResurrectionService] ❌ Шаблон не найден"); return undefined; }
 
-		const model = template.Clone();
-		model.Name = `Summon_${templateId}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
-		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
-		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+	const model = template.Clone();
+	model.Name = `Summon_${templateId}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
+	const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+	const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
 
-		if (humanoid && root) {
-			humanoid.MaxHealth = 50;
-			humanoid.Health = 50;
-			humanoid.WalkSpeed = 16;
-			humanoid.BreakJointsOnDeath = false;
-			model.PrimaryPart = root;
-			model.PivotTo(new CFrame(position));
-			model.Parent = Workspace;
-		}
-		return model;
+	if (humanoid && root) {
+		humanoid.MaxHealth = 50;
+		humanoid.Health = 50;
+		humanoid.WalkSpeed = 16;
+		humanoid.BreakJointsOnDeath = false;
+		model.PrimaryPart = root;
+		model.PivotTo(new CFrame(position));
+		model.Parent = Workspace;
+		
+		// ✅ Добавляем тег здоровья (если нужно, чтобы юнит мог умирать)
+		CollectionService.AddTag(model, "HasHealth");
+	}
+	return model;
 	}
 
 	private addCrimsonEyes(model: Model) {

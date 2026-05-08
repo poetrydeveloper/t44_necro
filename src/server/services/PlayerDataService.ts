@@ -10,6 +10,7 @@ export interface PlayerData {
 	gold: number;
 	soulEssence: number;
 	currentRun: number;
+	requiredExperience: number; // Добавлено поле для порога опыта
 }
 
 @Service({})
@@ -52,13 +53,19 @@ export class PlayerDataService implements OnStart {
 		return source;
 	}
 
+	private calculateRequiredExp(level: number): number {
+		return math.floor(100 * math.pow(level, 1.5));
+	}
+
 	private createDefaultData(player: Player): PlayerData {
+		const startingStats = { ...GameConfig.startingStats } as NecromancerStats;
 		return {
 			userId: player.UserId,
-			stats: { ...GameConfig.startingStats },
+			stats: startingStats,
 			gold: 0,
 			soulEssence: 0,
 			currentRun: 1,
+			requiredExperience: this.calculateRequiredExp(1), // Ур 1 требует 100 опыта
 		};
 	}
 
