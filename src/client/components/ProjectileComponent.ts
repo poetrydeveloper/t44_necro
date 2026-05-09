@@ -35,31 +35,29 @@ export class ProjectileComponent extends BaseComponent<{}, Model> implements OnS
 		// --- ВИЗУАЛЬНЫЕ ЭФФЕКТЫ (вешаем на orb) ---
 		
 		// 1. Свечение
-		const light = new Instance("PointLight", orb);
+		const light = new Instance("PointLight");
 		light.Color = Color3.fromRGB(138, 43, 226);
 		light.Range = 10;
 		light.Brightness = 2;
+		light.Parent = orb;
 
 		// 2. Шлейф (Trail)
-		const att0 = new Instance("Attachment", orb);
-		const att1 = new Instance("Attachment", orb);
-		att1.Position = new Vector3(0, 0, -1);
+		const att0 = new Instance("Attachment");
+		att0.Parent = orb;
 		
-		const trail = new Instance("Trail", orb);
+		const att1 = new Instance("Attachment");
+		att1.Position = new Vector3(0, 0, -1);
+		att1.Parent = orb;
+		
+		const trail = new Instance("Trail");
 		trail.Attachment0 = att0;
 		trail.Attachment1 = att1;
-		trail.Color = new ColorSequence([
-			new ColorSequenceKeypoint(0, Color3.fromRGB(138, 43, 226)),
-			new ColorSequenceKeypoint(1, Color3.fromRGB(0, 0, 0))
-		]);
+		trail.Color = new ColorSequence(Color3.fromRGB(138, 43, 226), Color3.fromRGB(0, 0, 0));
 		trail.Lifetime = 0.5;
-		trail.WidthScale = new NumberSequence([
-			new NumberSequenceKeypoint(0, 1),
-			new NumberSequenceKeypoint(1, 0)
-		]);
+		trail.WidthScale = new NumberSequence(1, 0);
+		trail.Parent = orb;
 
 		// --- АНИМАЦИЯ ПОЛЕТА ---
-		// 🛠 ИСПРАВЛЕНО: Твиним позицию части (orb), а не CFrame модели
 		const tweenInfo = new TweenInfo(duration, Enum.EasingStyle.Linear);
 		const tween = TweenService.Create(orb, tweenInfo, {
 			Position: targetPos

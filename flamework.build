@@ -32,7 +32,10 @@
 		"t44_necro:out/server/services/AIAttackService@AIAttackService": "server/services/AIAttackService@AIAttackService",
 		"t44_necro:out/server/services/UnitBehaviorService@UnitBehaviorService": "server/services/UnitBehaviorService@UnitBehaviorService",
 		"t44_necro:out/server/services/ProgressionService@ProgressionService": "server/services/ProgressionService@ProgressionService",
-		"t44_necro:out/server/services/UnitIndicatorService@UnitIndicatorService": "server/services/UnitIndicatorService@UnitIndicatorService"
+		"t44_necro:out/server/services/UnitIndicatorService@UnitIndicatorService": "server/services/UnitIndicatorService@UnitIndicatorService",
+		"t44_necro:out/client/ui/PlayerStatsPanel@PlayerStatsPanel": "client/ui/PlayerStatsPanel@PlayerStatsPanel",
+		"t44_necro:out/server/services/StatsUpdateService@StatsUpdateService": "server/services/StatsUpdateService@StatsUpdateService",
+		"t44_necro:out/shared/networking/StatsNetworking@StatsNetworking": "shared/networking/StatsNetworking@StatsNetworking"
 	},
 	"metadata": {}
 }

@@ -10,7 +10,7 @@ export interface PlayerData {
 	gold: number;
 	soulEssence: number;
 	currentRun: number;
-	requiredExperience: number; // Добавлено поле для порога опыта
+	requiredExperience: number;
 }
 
 @Service({})
@@ -19,7 +19,6 @@ export class PlayerDataService implements OnStart {
 	private playerDataMap = new Map<number, PlayerData>();
 	private dirtyPlayers = new Set<number>();
 
-	// Сигнал для других сервисов (например, GameService)
 	public readonly onDataLoaded = new Signal<(player: Player, data: PlayerData) => void>();
 
 	onStart() {
@@ -41,6 +40,7 @@ export class PlayerDataService implements OnStart {
 	}
 
 	private reconcile(source: object, template: object): object {
+		// Используем Lua pairs через for..in
 		for (const [key, value] of pairs(template)) {
 			const sourceValue = (source as Record<string, unknown>)[key as string];
 
@@ -54,7 +54,7 @@ export class PlayerDataService implements OnStart {
 	}
 
 	private calculateRequiredExp(level: number): number {
-		return math.floor(100 * math.pow(level, 1.5));
+		return math.floor(100 * (level ^ 1.5));
 	}
 
 	private createDefaultData(player: Player): PlayerData {
@@ -65,7 +65,7 @@ export class PlayerDataService implements OnStart {
 			gold: 0,
 			soulEssence: 0,
 			currentRun: 1,
-			requiredExperience: this.calculateRequiredExp(1), // Ур 1 требует 100 опыта
+			requiredExperience: this.calculateRequiredExp(1),
 		};
 	}
 
@@ -129,20 +129,3 @@ export class PlayerDataService implements OnStart {
 		}
 	}
 }
-
-/**
- * ИНСТРУКЦИЯ ПО ИСПОЛЬЗОВАНИЮ:
- * 
- * 1. Получение данных (только чтение):
- *    const data = this.playerDataService.getPlayerData(player);
- * 
- * 2. Изменение данных (ОБЯЗАТЕЛЬНО через updatePlayerData):
- *    this.playerDataService.updatePlayerData(player, (data) => {
- *        data.gold += 100;
- *        data.stats.strength += 5;
- *    });
- * 
- * Почему это важно:
- * - updatePlayerData автоматически ставит игрока в очередь на сохранение (Dirty Flag).
- * - Если менять данные напрямую через getPlayerData, авто-сейв их проигнорирует.
- */

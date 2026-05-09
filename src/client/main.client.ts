@@ -1,13 +1,35 @@
-// client/main.client.ts
+// src/client/main.client.ts
 import { Flamework } from "@flamework/core";
 
 print("--------------------------------------------------");
 print("🧙‍♂️ NECROMANCER ROGUELITE - КЛИЕНТ ЗАПУСКАЕТСЯ");
 print("--------------------------------------------------");
 
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ КОМПОНЕНТОВ
+// =========================
+import "./components/CorpseHighlightComponent";
+import "./components/DamagePopupComponent";
+import "./components/EnemyHealthBar";
+import "./components/ProjectileComponent";
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ КОНТРОЛЛЕРОВ
+// =========================
+import "./controllers/AutoTargetController";
+import "./controllers/CameraController";
+import "./controllers/CorpseCollectionController";
+import "./controllers/MovementController";
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ UI
+// =========================
+import "./ui/TopStackPanel";
+import "./ui/PlayerStatsPanel";
+
 Flamework.addPaths("src/client/controllers");
-Flamework.addPaths("src/client/managers");
 Flamework.addPaths("src/client/components");
+Flamework.addPaths("src/client/ui");
 
 Flamework.ignite();
 

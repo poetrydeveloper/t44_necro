@@ -40,15 +40,21 @@ export class UnitBehaviorService implements OnStart {
 			const model = summon.instance;
 			if (!model.Parent || summon.ownerId === 0) continue;
 
+			const unitRoot = model.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!unitRoot) continue;
+
+			const humanoid = model.FindFirstChildOfClass("Humanoid");
+			if (!humanoid) continue;
+
 			const owner = Players.GetPlayerByUserId(summon.ownerId);
 			if (!owner?.Character) continue;
 			
 			const ownerRoot = owner.Character.FindFirstChild("HumanoidRootPart") as BasePart;
 			if (!ownerRoot) continue;
 
-			const currentPivot = model.GetPivot();
+			const unitPos = unitRoot.Position;
 
-			// Поиск ближайшего врага
+			// Поиск ближайшего врага (по горизонтали)
 			let nearestEnemy: EnemyComponent | undefined;
 			let nearestDist: number = COMBAT_CONFIG.CHASE_RANGE;
 
@@ -58,9 +64,13 @@ export class UnitBehaviorService implements OnStart {
 				const eRoot = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
 				if (!eRoot) continue;
 
-				const d = currentPivot.Position.sub(eRoot.Position).Magnitude;
-				if (d < nearestDist) {
-					nearestDist = d;
+				const enemyPos = eRoot.Position;
+				const dx = unitPos.X - enemyPos.X;
+				const dz = unitPos.Z - enemyPos.Z;
+				const horizontalDist = math.sqrt(dx * dx + dz * dz);
+				
+				if (horizontalDist < nearestDist) {
+					nearestDist = horizontalDist;
 					nearestEnemy = enemy;
 				}
 			}
@@ -83,57 +93,61 @@ export class UnitBehaviorService implements OnStart {
 					
 					print(`[UnitAI] ⚔️ АТАКА! Урон: ${stats.damage} по ${nearestEnemy.instance.Name}`);
 					this.lastAttackTime.set(model.Name, now);
-					this.indicatorService.update(model.Name, "attack", nearestEnemy.instance.GetPivot().Position, currentPivot.Position);
-					continue;
+					this.indicatorService.update(model.Name, "attack", nearestEnemy.instance.GetPivot().Position, unitPos);
+					// Продолжаем движение — не делаем continue, чтобы юнит мог двигаться во время атаки
 				}
 			}
 
-			// Движение
-			let state = "follow";
-			let targetPos = ownerRoot.Position;
-
+			// Движение (всегда, даже если атакуем)
 			if (nearestEnemy && nearestDist <= COMBAT_CONFIG.CHASE_RANGE) {
-				state = "chase";
-				targetPos = nearestEnemy.instance.GetPivot().Position;
 				const eRoot = nearestEnemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
-				if (eRoot) this.moveTowards(model, eRoot.Position, dt);
+				if (eRoot) {
+					humanoid.MoveTo(eRoot.Position);
+					humanoid.WalkSpeed = COMBAT_CONFIG.MOVE_SPEED;
+				}
 			} else {
-				const distToOwner = currentPivot.Position.sub(ownerRoot.Position).Magnitude;
+				const distToOwner = unitPos.sub(ownerRoot.Position).Magnitude;
 				if (distToOwner > COMBAT_CONFIG.FOLLOW_DISTANCE) {
-					this.moveTowards(model, ownerRoot.Position, dt);
+					humanoid.MoveTo(ownerRoot.Position);
+					humanoid.WalkSpeed = COMBAT_CONFIG.MOVE_SPEED;
+				} else if (humanoid.WalkSpeed !== 0) {
+					humanoid.MoveTo(unitPos);
+					humanoid.WalkSpeed = 0;
 				}
 			}
 
-			this.indicatorService.update(model.Name, state, targetPos, currentPivot.Position);
+			this.indicatorService.update(model.Name, nearestEnemy ? "chase" : "follow", 
+				nearestEnemy && nearestEnemy.instance.FindFirstChild("HumanoidRootPart") 
+					? (nearestEnemy.instance.FindFirstChild("HumanoidRootPart") as BasePart).Position 
+					: ownerRoot.Position, 
+				unitPos);
 		}
 	}
 
-	private moveTowards(model: Model, targetPos: Vector3, dt: number) {
-		const currentPivot = model.GetPivot();
-		const diff = targetPos.sub(currentPivot.Position);
-		const flatDir = diff.Magnitude > 0 ? new Vector3(diff.X, 0, diff.Z).Unit : new Vector3(0, 0, 0);
-		model.PivotTo(currentPivot.add(flatDir.mul(COMBAT_CONFIG.MOVE_SPEED * dt)));
-	}
-
+	/**
+	 * Визуальный рывок при атаке (не влияет на реальное движение)
+	 */
 	private playAttackLunge(model: Model, targetPos: Vector3) {
 		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
 		if (!root) return;
 		
-		const currentPivot = model.GetPivot();
-		const dir = targetPos.sub(currentPivot.Position).Magnitude > 0 
-			? targetPos.sub(currentPivot.Position).Unit 
+		const currentPos = root.Position;
+		const dir = targetPos.sub(currentPos).Magnitude > 0 
+			? targetPos.sub(currentPos).Unit 
 			: new Vector3(0, 0, 1);
-		const lungePos = currentPivot.Position.add(dir.mul(1.5));
-		const lookAtCFrame = CFrame.lookAt(lungePos, lungePos.add(dir));
-
-		TweenService.Create(root, new TweenInfo(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		const lungePos = currentPos.add(dir.mul(1.5));
+		
+		// Только визуальный эффект — твин CFrame корня
+		const lookAtCFrame = new CFrame(lungePos, lungePos.add(dir));
+		
+		TweenService.Create(root, new TweenInfo(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			CFrame: lookAtCFrame
 		}).Play();
 
 		task.delay(0.15, () => {
 			if (model.Parent) {
-				TweenService.Create(root, new TweenInfo(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					CFrame: currentPivot
+				TweenService.Create(root, new TweenInfo(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					CFrame: new CFrame(currentPos)
 				}).Play();
 			}
 		});

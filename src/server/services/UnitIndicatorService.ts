@@ -27,13 +27,15 @@ export class UnitIndicatorService implements OnStart {
 		const groundY = rayResult ? rayResult.Position.Y + 0.1 : unitPos.Y - 2.9;
 
 		circle.Size = new Vector3(0.1, this.CHASE_RANGE * 2, this.CHASE_RANGE * 2);
-		circle.CFrame = new CFrame(unitPos.X, groundY, unitPos.Z).mul(CFrame.Angles(0, 0, math.rad(90)));
+		// Исправлено: math.rad(90) -> 90 * math.pi / 180
+		circle.CFrame = new CFrame(unitPos.X, groundY, unitPos.Z).mul(CFrame.Angles(0, 0, 90 * math.pi / 180));
 
 		if (hasTarget) {
 			arrow.Transparency = 0;
 			const arrowHeight = groundY + 0.3;
-			arrow.CFrame = CFrame.lookAt(
-				new Vector3(unitPos.X, arrowHeight, unitPos.Z), 
+			// Исправлено: CFrame.lookAt -> new CFrame(from, to)
+			arrow.CFrame = new CFrame(
+				new Vector3(unitPos.X, arrowHeight, unitPos.Z),
 				new Vector3(targetPos.X, arrowHeight, targetPos.Z)
 			);
 			circle.Color = Color3.fromRGB(255, 50, 50);

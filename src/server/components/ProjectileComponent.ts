@@ -13,12 +13,10 @@ interface ProjectileAttributes {
 export class ProjectileComponent extends BaseComponent<ProjectileAttributes, Model> implements OnStart {
 	
 	onStart() {
-		// Компонент автоматически прочитает атрибуты OwnerId, TargetPos, Speed из модели
-		const ownerId = this.attributes.OwnerId;
-		const targetPos = this.attributes.TargetPos;
-		const speed = this.attributes.Speed;
-		
-		// print(`[ProjectileComponent] Снаряд создан игроком ${ownerId}, скорость ${speed}`);
+		// Временно отключено для отладки
+		// const ownerId = this.attributes.OwnerId;
+		// const targetPos = this.attributes.TargetPos;
+		// const speed = this.attributes.Speed;
 	}
 
 	onDestroy() {

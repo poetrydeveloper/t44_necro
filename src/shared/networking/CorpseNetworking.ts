@@ -16,6 +16,8 @@ interface ClientEvents {
 	resurrectionFailed(reason: string): void;
 	/** Обновить текущую ману игрока */
 	updateMana(current: number, max: number): void;
+	/** Обновить количество армии */
+	updateArmyCount(current: number, max: number): void;
 }
 
 export const CorpseNetworking = Networking.createEvent<ServerEvents, ClientEvents>();

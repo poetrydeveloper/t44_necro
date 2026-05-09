@@ -113,68 +113,73 @@ export class ResurrectionService implements OnStart {
 
 	private cancelProcess(userId: number) { this.playerProcesses.delete(userId); }
 
-	private spawnSummon(player: Player, comp: CorpseComponent, corpse: Model) {
-	const userId = player.UserId;
-	this.armyCounts.set(userId, (this.armyCounts.get(userId) || 0) + 1);
-	this.spendMana(player, this.MANA_COST);
-
-	const spawnPos = player.Character?.GetPivot().Position.add(new Vector3(5, 0, 0)) || new Vector3(0, 10, 0);
-	const summonModel = this.createSummonModel(comp.templateId, spawnPos);
-
-	if (summonModel) {
-		const weapons: WeaponType[] = ["RustySword", "BoneBlade", "SpectralDagger"];
-		const randomIndex = math.random(1, 3);
-		const chosen = weapons[randomIndex - 1];
-
-		// ✅ 1. СНАЧАЛА добавляем тег (триггерит создание SummonComponent)
-		CollectionService.AddTag(summonModel, "Summon");
-		
-		// ✅ 2. ПОТОМ устанавливаем атрибуты (компонент их прочитает в onStart)
-		summonModel.SetAttribute("OwnerId", userId);
-		summonModel.SetAttribute("TemplateId", comp.templateId);
-		summonModel.SetAttribute("SummonTime", os.clock());
-		summonModel.SetAttribute("WeaponType", chosen);
-
-		this.addCrimsonEyes(summonModel);
-
-		// Удаляем труп
-		if (corpse.Parent) corpse.Destroy();
-
-		print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId} [${chosen}]. Армия: ${this.armyCounts.get(userId)}/${this.MAX_ARMY}`);
-		
-		// 🛠 ОТЛАДКА: проверяем, создался ли компонент
-		task.wait(0.1);
-		const checkComp = this.components.getComponent<SummonComponent>(summonModel);
-		if (checkComp) {
-			print(`[Resurrection] ✅ Component SummonComponent найден для ${summonModel.Name}`);
-		} else {
-			warn(`[Resurrection] ❌ Component SummonComponent НЕ создан для ${summonModel.Name}`);
-		}
+	private updateArmyCountUI(player: Player) {
+		const current = this.armyCounts.get(player.UserId) || 0;
+		this.events.updateArmyCount(player, current, this.MAX_ARMY);
 	}
+
+	private spawnSummon(player: Player, comp: CorpseComponent, corpse: Model) {
+		const userId = player.UserId;
+		this.armyCounts.set(userId, (this.armyCounts.get(userId) || 0) + 1);
+		this.spendMana(player, this.MANA_COST);
+
+		const spawnPos = player.Character?.GetPivot().Position.add(new Vector3(5, 0, 0)) || new Vector3(0, 10, 0);
+		const summonModel = this.createSummonModel(comp.templateId, spawnPos);
+
+		if (summonModel) {
+			const weapons: WeaponType[] = ["RustySword", "BoneBlade", "SpectralDagger"];
+			const randomIndex = math.random(1, 3);
+			const chosen = weapons[randomIndex - 1];
+
+			CollectionService.AddTag(summonModel, "Summon");
+			
+			summonModel.SetAttribute("OwnerId", userId);
+			summonModel.SetAttribute("TemplateId", comp.templateId);
+			summonModel.SetAttribute("SummonTime", os.clock());
+			summonModel.SetAttribute("WeaponType", chosen);
+
+			this.addCrimsonEyes(summonModel);
+
+			// Удаляем труп
+			if (corpse.Parent) corpse.Destroy();
+
+			const armyCount = this.armyCounts.get(userId) || 0;
+			print(`[Resurrection] ✅ ${player.Name} воскресил ${comp.templateId} [${chosen}]. Армия: ${armyCount}/${this.MAX_ARMY}`);
+			
+			// Отправляем обновление UI армии
+			this.updateArmyCountUI(player);
+			
+			task.wait(0.1);
+			const checkComp = this.components.getComponent<SummonComponent>(summonModel);
+			if (checkComp) {
+				print(`[Resurrection] ✅ Component SummonComponent найден для ${summonModel.Name}`);
+			} else {
+				warn(`[Resurrection] ❌ Component SummonComponent НЕ создан для ${summonModel.Name}`);
+			}
+		}
 	}
 
 	private createSummonModel(templateId: string, position: Vector3): Model | undefined {
-	const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
-	if (!template) { warn("[ResurrectionService] ❌ Шаблон не найден"); return undefined; }
+		const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
+		if (!template) { warn("[ResurrectionService] ❌ Шаблон не найден"); return undefined; }
 
-	const model = template.Clone();
-	model.Name = `Summon_${templateId}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
-	const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
-	const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+		const model = template.Clone();
+		model.Name = `Summon_${templateId}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
 
-	if (humanoid && root) {
-		humanoid.MaxHealth = 50;
-		humanoid.Health = 50;
-		humanoid.WalkSpeed = 16;
-		humanoid.BreakJointsOnDeath = false;
-		model.PrimaryPart = root;
-		model.PivotTo(new CFrame(position));
-		model.Parent = Workspace;
-		
-		// ✅ Добавляем тег здоровья (если нужно, чтобы юнит мог умирать)
-		CollectionService.AddTag(model, "HasHealth");
-	}
-	return model;
+		if (humanoid && root) {
+			humanoid.MaxHealth = 50;
+			humanoid.Health = 50;
+			humanoid.WalkSpeed = 16;
+			humanoid.BreakJointsOnDeath = false;
+			model.PrimaryPart = root;
+			model.PivotTo(new CFrame(position));
+			model.Parent = Workspace;
+			
+			CollectionService.AddTag(model, "HasHealth");
+		}
+		return model;
 	}
 
 	private addCrimsonEyes(model: Model) {
@@ -189,7 +194,6 @@ export class ResurrectionService implements OnStart {
 			eye.Material = Enum.Material.Neon;
 			eye.Anchored = false;
 			eye.CanCollide = false;
-			// ИСПРАВЛЕНИЕ: используем конструктор new CFrame(), а не CFrame.new()
 			eye.CFrame = head.CFrame.mul(new CFrame(offset)); 
 			eye.Parent = model;
 		};

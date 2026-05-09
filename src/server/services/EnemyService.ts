@@ -252,12 +252,14 @@ export class EnemyService implements OnStart {
 		
 		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
 
+		// Исправлено: math.random -> прямой вызов, math.rad -> ручной перевод
 		const randomRotY = math.random() * math.pi * 2;
-		const fallAngle = math.rad(85 + math.random() * 10);
+		const fallAngleDeg = 85 + math.random() * 10;
+		const fallAngleRad = fallAngleDeg * math.pi / 180;
 		
 		model.PivotTo(
 			new CFrame(new Vector3(spawnPos.X, groundY, spawnPos.Z))
-				.mul(CFrame.Angles(0, randomRotY, fallAngle))
+				.mul(CFrame.Angles(0, randomRotY, fallAngleRad))
 		);
 
 		for (const child of model.GetDescendants()) {
