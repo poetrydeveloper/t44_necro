@@ -1,11 +1,14 @@
 // src/server/services/GameService.ts
-import { Service, OnStart } from "@flamework/core";
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
 import { Players, Workspace, RunService } from "@rbxts/services";
 import { PlayerDataService } from "./PlayerDataService";
 import { EnemyService } from "./EnemyService";
 
 @Service({})
 export class GameService implements OnStart {
+	private components!: Components;
+
 	constructor(
 		private readonly playerDataService: PlayerDataService,
 		private readonly enemyService: EnemyService,
@@ -13,14 +16,14 @@ export class GameService implements OnStart {
 
 	onStart() {
 		print("[GameService] 🏰 Сервис игры запущен");
+		
 		Players.CharacterAutoLoads = true;
+		this.components = Dependency<Components>();
 
-		// Используем сигнал вместо цикла while
 		this.playerDataService.onDataLoaded.Connect((player) => {
 			this.onPlayerReady(player);
 		});
 
-		// На случай, если игрок зашел в микросекунду до подписки
 		for (const player of Players.GetPlayers()) {
 			const data = this.playerDataService.getPlayerData(player);
 			if (data) this.onPlayerReady(player);
@@ -47,41 +50,40 @@ export class GameService implements OnStart {
 		character.PivotTo(spawnPos);
 		print(`[GameService] 🧙 ${player.Name} телепортирован на спавн.`);
 
-		// Дебаг-спавн запускаем только в Studio
 		if (RunService.IsStudio()) {
 			this.spawnDebugEnemies(rootPart);
 		}
 	}
 
-	/**
-	 * Вынесенный дебаг-код для тестов в Studio
-	 * 🛠 ОБНОВЛЕНО: Спавним 10 врагов по кругу для теста ИИ
-	 */
 	private spawnDebugEnemies(rootPart: BasePart) {
 		task.defer(() => {
 			const playerPos = rootPart.Position;
-			const count = 10;       // Количество врагов
-			const radius = 30;      // Радиус круга (студы)
+			const count = 10;
+			const radius = 30;
 
 			print(`[GameService] 🧪 Спавним ${count} тестовых врагов по кругу...`);
 
 			for (let i = 0; i < count; i++) {
-				// Вычисляем угол для равномерного распределения по кругу
 				const angle = (i / count) * math.pi * 2;
-				
-				// Вычисляем позицию: смещение по кругу + подъем на 5 студов, чтобы не в полу
 				const offset = new Vector3(math.cos(angle) * radius, 5, math.sin(angle) * radius);
 				const pos = playerPos.add(offset);
 
-				// Спавним врага
 				const enemy = this.enemyService.spawnSkeleton(pos);
 				
 				if (enemy) {
-					// 🛠 Немного увеличиваем здоровье для теста, чтобы бой был дольше
 					const humanoid = enemy.FindFirstChildOfClass("Humanoid") as Humanoid;
 					if (humanoid) {
 						humanoid.MaxHealth = 100;
 						humanoid.Health = 100;
+						
+						// Сетевое владение для врагов (только после добавления в Workspace)
+						task.defer(() => {
+							for (const child of enemy.GetDescendants()) {
+								if (child.IsA("BasePart") && !child.Anchored) {
+									child.SetNetworkOwner(undefined);
+								}
+							}
+						});
 					}
 					print(`[GameService] ✅ Враг #${i+1} заспавнен`);
 				}

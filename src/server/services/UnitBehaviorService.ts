@@ -1,155 +1,103 @@
-import { Service, OnStart, Dependency } from "@flamework/core";
+import { Service, OnStart } from "@flamework/core";
 import { Components } from "@flamework/components";
-import { Players, TweenService } from "@rbxts/services";
-import { SummonComponent } from "server/components/SummonComponent";
-import { EnemyComponent } from "server/components/EnemyComponent";
-import { UnitIndicatorService } from "./UnitIndicatorService";
-import { WEAPON_STATS, COMBAT_CONFIG, getLifeComponent, isEnemyAlive } from "./UnitCombatUtils";
+import { CollectionService, Players, RunService } from "@rbxts/services";
+import { LifeComponent } from "server/components/LifeComponent";
 
 @Service({})
 export class UnitBehaviorService implements OnStart {
-	private components = Dependency<Components>();
-	private indicatorService = Dependency<UnitIndicatorService>();
-	
-	private lastAttackTime = new Map<string, number>();
-	private isReady = false;
+	private AGGRO_RANGE = 50;
+	private ATTACK_RANGE = 12;
+	private FOLLOW_RANGE = 15;
+	private ATTACK_COOLDOWN = 1.2;
+	private lastAttackTime = new Map<Instance, number>(); // Лучше хранить ссылку на Instance
+
+	// Внедряем компоненты через конструктор (стандарт Flamework)
+	constructor(private components: Components) {}
 
 	onStart() {
 		print("[UnitBehaviorService] 🧠 Логика юнитов активна.");
-		task.wait(0.1);
-		this.isReady = true;
-		
-		task.spawn(() => {
-			while (true) {
-				const dt = task.wait(1/60);
-				if (!this.isReady) continue;
-				try {
-					this.update(dt);
-				} catch (e) {
-					warn(`[UnitBehaviorService] ❌ Ошибка: ${e}`);
-				}
-			}
-		});
+		RunService.Heartbeat.Connect(() => this.updateUnits());
 	}
 
-	private update(dt: number) {
-		const summons = this.components.getAllComponents<SummonComponent>(SummonComponent);
-		const enemies = this.components.getAllComponents<EnemyComponent>(EnemyComponent);
-
-		for (const summon of summons) {
-			const model = summon.instance;
-			if (!model.Parent || summon.ownerId === 0) continue;
-
-			const unitRoot = model.FindFirstChild("HumanoidRootPart") as BasePart;
-			if (!unitRoot) continue;
-
+	private updateUnits() {
+		for (const unit of CollectionService.GetTagged("Summon")) {
+			const model = unit as Model;
 			const humanoid = model.FindFirstChildOfClass("Humanoid");
-			if (!humanoid) continue;
+			const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+			const ownerId = model.GetAttribute("OwnerId") as number;
 
-			const owner = Players.GetPlayerByUserId(summon.ownerId);
-			if (!owner?.Character) continue;
-			
-			const ownerRoot = owner.Character.FindFirstChild("HumanoidRootPart") as BasePart;
-			if (!ownerRoot) continue;
+			if (!humanoid || !root || !ownerId) continue;
 
-			const unitPos = unitRoot.Position;
+			const owner = Players.GetPlayerByUserId(ownerId);
+			const character = owner?.Character;
+			if (!character || !character.PrimaryPart) continue;
 
-			// Поиск ближайшего врага (по горизонтали)
-			let nearestEnemy: EnemyComponent | undefined;
-			let nearestDist: number = COMBAT_CONFIG.CHASE_RANGE;
+			const enemy = this.findNearestEnemy(root.Position);
 
-			for (const enemy of enemies) {
-				if (!isEnemyAlive(this.components, enemy.instance)) continue;
-
-				const eRoot = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
-				if (!eRoot) continue;
-
-				const enemyPos = eRoot.Position;
-				const dx = unitPos.X - enemyPos.X;
-				const dz = unitPos.Z - enemyPos.Z;
-				const horizontalDist = math.sqrt(dx * dx + dz * dz);
+			if (enemy && enemy.PrimaryPart) {
+				const enemyPos = enemy.PrimaryPart.Position;
+				const dist = root.Position.sub(enemyPos).Magnitude;
 				
-				if (horizontalDist < nearestDist) {
-					nearestDist = horizontalDist;
-					nearestEnemy = enemy;
-				}
-			}
-
-			const now = os.clock();
-			const last = this.lastAttackTime.get(model.Name) || 0;
-			const weapon = summon.weaponType || "RustySword";
-			const stats = WEAPON_STATS[weapon] || WEAPON_STATS.RustySword;
-			const effectiveRange = stats.range + 2.0;
-
-			// Атака
-			if (nearestEnemy) {
-				const life = getLifeComponent(this.components, nearestEnemy.instance);
-				const inRange = nearestDist <= effectiveRange;
-				const cooldownReady = now - last >= COMBAT_CONFIG.ATTACK_COOLDOWN;
-
-				if (inRange && cooldownReady && life && life.isAlive()) {
-					life.takeDamage(stats.damage);
-					this.playAttackLunge(model, nearestEnemy.instance.GetPivot().Position);
+				// Движение к врагу
+				humanoid.MoveTo(enemyPos);
+				humanoid.WalkSpeed = 16;
+				
+				// Атака
+				if (dist <= this.ATTACK_RANGE) {
+					const now = os.clock();
+					const last = this.lastAttackTime.get(model) || 0;
 					
-					print(`[UnitAI] ⚔️ АТАКА! Урон: ${stats.damage} по ${nearestEnemy.instance.Name}`);
-					this.lastAttackTime.set(model.Name, now);
-					this.indicatorService.update(model.Name, "attack", nearestEnemy.instance.GetPivot().Position, unitPos);
-					// Продолжаем движение — не делаем continue, чтобы юнит мог двигаться во время атаки
-				}
-			}
-
-			// Движение (всегда, даже если атакуем)
-			if (nearestEnemy && nearestDist <= COMBAT_CONFIG.CHASE_RANGE) {
-				const eRoot = nearestEnemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
-				if (eRoot) {
-					humanoid.MoveTo(eRoot.Position);
-					humanoid.WalkSpeed = COMBAT_CONFIG.MOVE_SPEED;
+					if (now - last >= this.ATTACK_COOLDOWN) {
+						// Получаем LifeComponent (убедись, что на враге есть тег "HasHealth")
+						const life = this.components.getComponent<LifeComponent>(enemy);
+						
+						if (life && life.isAlive()) {
+							const weapon = model.GetAttribute("WeaponType") as string || "RustySword";
+							const damage = weapon === "BoneBlade" ? 12 : (weapon === "SpectralDagger" ? 6 : 8);
+							
+							life.takeDamage(damage);
+							this.lastAttackTime.set(model, now);
+							print(`[UnitAI] ⚔️ ${model.Name} атаковал ${enemy.Name} на ${damage}`);
+						}
+					}
 				}
 			} else {
-				const distToOwner = unitPos.sub(ownerRoot.Position).Magnitude;
-				if (distToOwner > COMBAT_CONFIG.FOLLOW_DISTANCE) {
-					humanoid.MoveTo(ownerRoot.Position);
-					humanoid.WalkSpeed = COMBAT_CONFIG.MOVE_SPEED;
-				} else if (humanoid.WalkSpeed !== 0) {
-					humanoid.MoveTo(unitPos);
+				// Следование за игроком
+				const ownerPos = character.PrimaryPart.Position;
+				const distToOwner = root.Position.sub(ownerPos).Magnitude;
+				
+				if (distToOwner > this.FOLLOW_RANGE) {
+					humanoid.MoveTo(ownerPos);
+					humanoid.WalkSpeed = 16;
+				} else {
+					// Остановка (важно для плавности)
+					humanoid.MoveTo(root.Position);
 					humanoid.WalkSpeed = 0;
 				}
 			}
-
-			this.indicatorService.update(model.Name, nearestEnemy ? "chase" : "follow", 
-				nearestEnemy && nearestEnemy.instance.FindFirstChild("HumanoidRootPart") 
-					? (nearestEnemy.instance.FindFirstChild("HumanoidRootPart") as BasePart).Position 
-					: ownerRoot.Position, 
-				unitPos);
 		}
 	}
 
-	/**
-	 * Визуальный рывок при атаке (не влияет на реальное движение)
-	 */
-	private playAttackLunge(model: Model, targetPos: Vector3) {
-		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
-		if (!root) return;
-		
-		const currentPos = root.Position;
-		const dir = targetPos.sub(currentPos).Magnitude > 0 
-			? targetPos.sub(currentPos).Unit 
-			: new Vector3(0, 0, 1);
-		const lungePos = currentPos.add(dir.mul(1.5));
-		
-		// Только визуальный эффект — твин CFrame корня
-		const lookAtCFrame = new CFrame(lungePos, lungePos.add(dir));
-		
-		TweenService.Create(root, new TweenInfo(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame: lookAtCFrame
-		}).Play();
+	private findNearestEnemy(pos: Vector3): Model | undefined {
+		let closest: Model | undefined;
+		let lastDist = this.AGGRO_RANGE;
 
-		task.delay(0.15, () => {
-			if (model.Parent) {
-				TweenService.Create(root, new TweenInfo(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					CFrame: new CFrame(currentPos)
-				}).Play();
+		for (const enemy of CollectionService.GetTagged("Enemy")) {
+			const enemyModel = enemy as Model;
+			const root = enemyModel.FindFirstChild("HumanoidRootPart") as BasePart;
+			
+			// Проверяем, жив ли враг перед тем как идти к нему
+			const life = this.components.getComponent<LifeComponent>(enemyModel);
+			if (life && !life.isAlive()) continue;
+
+			if (root && enemyModel.Parent) {
+				const dist = pos.sub(root.Position).Magnitude;
+				if (dist < lastDist) {
+					lastDist = dist;
+					closest = enemyModel;
+				}
 			}
-		});
+		}
+		return closest;
 	}
 }

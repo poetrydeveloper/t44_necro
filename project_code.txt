@@ -1,0 +1,2873 @@
+=== PROJECT STRUCTURE ===
+.
+./assets
+./assets/models
+./assets/models/SkeletonWarrior.rbxm
+./default.project.json
+./flamework.build
+./flamework_structure.txt
+./GDD
+./GDD/first_gdd
+./GDD/~$РТА СПРИНТОВ КВЕРА.docx
+./GDD/КАРТА СПРИНТОВ КВЕРА.docx
+./GDD/ОТВЕТ ГПТ ЧАТ НА ГДД.docx
+./GDD/ответ квера.docx
+./include
+./include/Promise.lua
+./include/RuntimeLib.lua
+./map_project
+./map_project/01_АРХИТЕКТУРА.md
+./map_project/06_БОЕВАЯ_СИСТЕМА.md
+./map_project/07_КОЛЛЕКЦИЯ_И_КАРТОЧКИ.md
+./map_project/08_МИР_И_ПРОГРЕССИЯ.md
+./map_project/09_PVP_ДУЭЛИ.md
+./map_project/10_ДОСТИЖЕНИЯ.md
+./map_project/Этапы спринтов.docx
+./out
+./out/client
+./out/client/components
+./out/client/components/CorpseHighlightComponent.luau
+./out/client/components/DamagePopupComponent.luau
+./out/client/components/EnemyHealthBar.luau
+./out/client/components/ProjectileComponent.luau
+./out/client/controllers
+./out/client/controllers/AutoTargetController.luau
+./out/client/controllers/CameraController.luau
+./out/client/controllers/CorpseCollectionController.luau
+./out/client/controllers/MovementController.luau
+./out/client/main.client.luau
+./out/client/ui
+./out/client/ui/PlayerStatsPanel.luau
+./out/client/ui/TopStackPanel.luau
+./out/server
+./out/server/components
+./out/server/components/CorpseComponent.luau
+./out/server/components/EnemyComponent.luau
+./out/server/components/LifeComponent.luau
+./out/server/components/ProjectileComponent.luau
+./out/server/components/SummonComponent.luau
+./out/server/main.server.luau
+./out/server/services
+./out/server/services/CombatService.luau
+./out/server/services/EnemyService.luau
+./out/server/services/GameService.luau
+./out/server/services/InvisibleFloorService.luau
+./out/server/services/PlayerDataService.luau
+./out/server/services/ProgressionService.luau
+./out/server/services/ResurrectionService.luau
+./out/server/services/StatsUpdateService.luau
+./out/server/services/SummonBuilder.luau
+./out/server/services/UnitBehaviorService.luau
+./out/server/services/UnitCombatUtils.luau
+./out/server/services/UnitIndicatorService.luau
+./out/shared
+./out/shared/constants
+./out/shared/constants/GameConfig.luau
+./out/shared/module.luau
+./out/shared/networking
+./out/shared/networking/CombatNetworking.luau
+./out/shared/networking/CorpseNetworking.luau
+./out/shared/networking/StatsNetworking.luau
+./out/shared/types
+./out/shared/types/EnemyTypes.luau
+./out/shared/types/GameTypes.luau
+./out/tsconfig.tsbuildinfo
+./package-lock.json
+./package.json
+./project_code.txt
+./project_structure.txt
+./src
+./src/client
+./src/client/components
+./src/client/components/CorpseHighlightComponent.ts
+./src/client/components/DamagePopupComponent.ts
+./src/client/components/EnemyHealthBar.ts
+./src/client/components/ProjectileComponent.ts
+./src/client/controllers
+./src/client/controllers/AutoTargetController.ts
+./src/client/controllers/CameraController.ts
+./src/client/controllers/CorpseCollectionController.ts
+./src/client/controllers/MovementController.ts
+./src/client/main.client.ts
+./src/client/ui
+./src/client/ui/PlayerStatsPanel.ts
+./src/client/ui/TopStackPanel.ts
+./src/server
+./src/server/components
+./src/server/components/CorpseComponent.ts
+./src/server/components/EnemyComponent.ts
+./src/server/components/LifeComponent.ts
+./src/server/components/ProjectileComponent.ts
+./src/server/components/SummonComponent.ts
+./src/server/main.server.ts
+./src/server/services
+./src/server/services/CombatService.ts
+./src/server/services/EnemyService.ts
+./src/server/services/GameService.ts
+./src/server/services/InvisibleFloorService.ts
+./src/server/services/PlayerDataService.ts
+./src/server/services/ProgressionService.ts
+./src/server/services/ResurrectionService.ts
+./src/server/services/StatsUpdateService.ts
+./src/server/services/SummonBuilder.ts
+./src/server/services/UnitBehaviorService.ts
+./src/server/services/UnitCombatUtils.ts
+./src/server/services/UnitIndicatorService.ts
+./src/shared
+./src/shared/constants
+./src/shared/constants/GameConfig.ts
+./src/shared/module.ts
+./src/shared/networking
+./src/shared/networking/CombatNetworking.ts
+./src/shared/networking/CorpseNetworking.ts
+./src/shared/networking/StatsNetworking.ts
+./src/shared/types
+./src/shared/types/EnemyTypes.ts
+./src/shared/types/GameTypes.ts
+./tsconfig.json
+
+=== FILE CONTENTS ===
+
+FILE: ./src/client/components/CorpseHighlightComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+@Component({ tag: "Corpse" })
+export class CorpseHighlightComponent extends BaseComponent<{}, Model> implements OnStart {
+	onStart() {
+		// 1. Маркер над головой
+		const marker = new Instance("Part");
+		marker.Name = "CorpseMarker";
+		marker.Shape = Enum.PartType.Cylinder;
+		marker.Size = new Vector3(0.2, 0.5, 0.5);
+		marker.Material = Enum.Material.Neon;
+		marker.Color = Color3.fromRGB(100, 100, 255);
+		marker.Anchored = true;
+		marker.CanCollide = false;
+		marker.Transparency = 0.5;
+		marker.CFrame = this.instance.GetPivot().add(new Vector3(0, 4, 0)).mul(CFrame.Angles(0, 0, math.rad(90)));
+		marker.Parent = this.instance;
+
+		// 2. Контур (SelectionBox)
+		const outline = new Instance("SelectionBox", this.instance);
+		outline.Adornee = this.instance;
+		outline.Color3 = Color3.fromRGB(150, 50, 250);
+		outline.LineThickness = 0.05;
+		outline.SurfaceColor3 = Color3.fromRGB(150, 50, 250);
+	}
+}
+---
+
+FILE: ./src/client/components/DamagePopupComponent.ts
+// src/client/components/DamagePopupComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+import { Players, TweenService, Debris, Workspace } from "@rbxts/services";
+import { CombatNetworking } from "shared/networking/CombatNetworking";
+
+@Component({})
+export class DamagePopupComponent implements OnStart {
+	private events = CombatNetworking.createClient({});
+	private player = Players.LocalPlayer;
+
+	onStart() {
+		this.events.showDamagePopup.connect((targetId: string, damage: number, position: Vector3) => {
+			this.showPopup(damage, position);
+		});
+	}
+
+	private showPopup(damage: number, worldPosition: Vector3) {
+		const popup = new Instance("TextLabel");
+		popup.Text = `-${damage}`;
+		popup.TextColor3 = Color3.fromRGB(255, 50, 50);
+		popup.TextSize = 24;
+		popup.Font = Enum.Font.GothamBold;
+		popup.BackgroundTransparency = 1;
+		popup.Size = new UDim2(0, 100, 0, 50);
+		popup.Position = new UDim2(0.5, -50, 0.5, -25);
+		popup.TextXAlignment = Enum.TextXAlignment.Center;
+		popup.ZIndex = 10;
+
+		const camera = Workspace.CurrentCamera;
+		if (!camera) return;
+
+		// 🛠 ИСПРАВЛЕНИЕ: Деструктуризация кортежа [Vector3, boolean]
+		// viewportPoint — это Vector3 (экранная позиция)
+		// onScreen — это boolean (виден ли объект камере)
+		const [viewportPoint, onScreen] = camera.WorldToViewportPoint(worldPosition);
+		
+		if (!onScreen) return; // Если объект за камерой — не показываем
+
+		const gui = new Instance("ScreenGui");
+		gui.Name = "DamagePopup";
+		gui.IgnoreGuiInset = true;
+		gui.ResetOnSpawn = false;
+		gui.Parent = this.player.WaitForChild("PlayerGui");
+
+		popup.Parent = gui;
+
+		// 🛠 Теперь viewportPoint.X и .Y работают корректно
+		popup.Position = new UDim2(
+			0,
+			viewportPoint.X - popup.AbsoluteSize.X / 2,
+			0,
+			viewportPoint.Y - popup.AbsoluteSize.Y
+		);
+
+		const tween = TweenService.Create(popup, new TweenInfo(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			TextTransparency: 1,
+			Position: new UDim2(
+				0,
+				viewportPoint.X - popup.AbsoluteSize.X / 2,
+				0,
+				viewportPoint.Y - popup.AbsoluteSize.Y - 50
+			),
+		});
+		tween.Play();
+
+		Debris.AddItem(gui, 1.5);
+	}
+}
+---
+
+FILE: ./src/client/components/EnemyHealthBar.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+import { RunService } from "@rbxts/services";
+
+@Component({ tag: "HasHealth" }) // Делаем универсальным
+export class EnemyHealthBar extends BaseComponent<{}, Model> implements OnStart {
+	private billboard?: BillboardGui;
+	private healthFill?: Frame;
+	private textLabel?: TextLabel;
+	private connection?: RBXScriptConnection;
+	private renderConnection?: RBXScriptConnection;
+
+	private targetHealthPercent = 1;
+	private currentDisplayPercent = 1;
+
+	onStart() {
+		const model = this.instance;
+		const humanoid = model.FindFirstChildOfClass("Humanoid");
+		// Используем PrimaryPart, если он есть, иначе ищем RootPart
+		const rootPart = (model.PrimaryPart || model.WaitForChild("HumanoidRootPart", 5)) as BasePart;
+
+		if (!humanoid || !rootPart) return;
+
+		this.billboard = new Instance("BillboardGui");
+		this.billboard.Name = "HealthDisplay";
+		this.billboard.Size = new UDim2(4, 0, 0.6, 0);
+		this.billboard.StudsOffset = new Vector3(0, 3.5, 0);
+		this.billboard.AlwaysOnTop = true;
+		this.billboard.Adornee = rootPart;
+		this.billboard.Parent = model;
+
+		const background = new Instance("Frame");
+		background.Size = new UDim2(1, 0, 1, 0);
+		background.BackgroundColor3 = Color3.fromRGB(15, 15, 15);
+		background.BackgroundTransparency = 0.3;
+		background.BorderSizePixel = 0;
+		background.ZIndex = 1;
+		background.Parent = this.billboard;
+
+		new Instance("UICorner", background).CornerRadius = new UDim(0.5, 0);
+
+		this.healthFill = new Instance("Frame");
+		this.healthFill.Size = new UDim2(1, 0, 1, 0);
+		this.healthFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50);
+		this.healthFill.BorderSizePixel = 0;
+		this.healthFill.ZIndex = 2;
+		this.healthFill.Parent = background;
+
+		new Instance("UICorner", this.healthFill).CornerRadius = new UDim(0.5, 0);
+
+		this.textLabel = new Instance("TextLabel");
+		this.textLabel.Size = new UDim2(1, 0, 1, 0);
+		this.textLabel.BackgroundTransparency = 1;
+		this.textLabel.TextColor3 = new Color3(1, 1, 1);
+		this.textLabel.TextSize = 14;
+		this.textLabel.Font = Enum.Font.GothamBold;
+		this.textLabel.TextStrokeTransparency = 0.5;
+		this.textLabel.ZIndex = 3;
+		this.textLabel.Parent = background;
+
+		const updateHealth = () => {
+			this.targetHealthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1);
+		};
+
+		this.connection = humanoid.GetPropertyChangedSignal("Health").Connect(updateHealth);
+		updateHealth();
+
+		this.renderConnection = RunService.RenderStepped.Connect((dt) => {
+			if (!this.healthFill || !this.textLabel) return;
+
+			this.currentDisplayPercent = math.lerp(this.currentDisplayPercent, this.targetHealthPercent, dt * 10);
+			this.healthFill.Size = new UDim2(this.currentDisplayPercent, 0, 1, 0);
+			
+			// Обновляем текст
+			const percentInt = math.floor(this.currentDisplayPercent * 100);
+			this.textLabel.Text = `${percentInt}%`;
+
+			// Плавная смена цвета: от зеленого к красному
+			this.healthFill.BackgroundColor3 = Color3.fromRGB(255, 50, 50).Lerp(Color3.fromRGB(50, 255, 50), this.currentDisplayPercent);
+		});
+	}
+
+	onDestroy() {
+		this.connection?.Disconnect();
+		this.renderConnection?.Disconnect();
+		this.billboard?.Destroy();
+	}
+}
+
+---
+
+FILE: ./src/client/components/ProjectileComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+import { TweenService, Debris } from "@rbxts/services";
+
+@Component({ tag: "Projectile" })
+export class ProjectileComponent extends BaseComponent<{}, Model> implements OnStart {
+	
+	onStart() {
+		// 1. Читаем атрибуты с МОДЕЛИ (сервер поставил их сюда)
+		const targetPos = this.instance.GetAttribute("TargetPos") as Vector3;
+		const speed = this.instance.GetAttribute("Speed") as number || 40;
+
+		// 2. Находим визуальную часть (Orb) внутри модели
+		const orb = this.instance.WaitForChild("Orb", 2) as Part;
+		if (!orb) {
+			warn("[ProjectileComponent] ❌ Не найдена часть Orb!");
+			this.instance.Destroy();
+			return;
+		}
+
+		if (!targetPos) {
+			warn("[ProjectileComponent] ❌ Нет целевой позиции!");
+			this.instance.Destroy();
+			return;
+		}
+
+		const distance = orb.Position.sub(targetPos).Magnitude;
+		if (distance < 1) {
+			this.instance.Destroy();
+			return;
+		}
+
+		const duration = distance / speed;
+
+		// --- ВИЗУАЛЬНЫЕ ЭФФЕКТЫ (вешаем на orb) ---
+		
+		// 1. Свечение
+		const light = new Instance("PointLight");
+		light.Color = Color3.fromRGB(138, 43, 226);
+		light.Range = 10;
+		light.Brightness = 2;
+		light.Parent = orb;
+
+		// 2. Шлейф (Trail)
+		const att0 = new Instance("Attachment");
+		att0.Parent = orb;
+		
+		const att1 = new Instance("Attachment");
+		att1.Position = new Vector3(0, 0, -1);
+		att1.Parent = orb;
+		
+		const trail = new Instance("Trail");
+		trail.Attachment0 = att0;
+		trail.Attachment1 = att1;
+		trail.Color = new ColorSequence(Color3.fromRGB(138, 43, 226), Color3.fromRGB(0, 0, 0));
+		trail.Lifetime = 0.5;
+		trail.WidthScale = new NumberSequence(1, 0);
+		trail.Parent = orb;
+
+		// --- АНИМАЦИЯ ПОЛЕТА ---
+		const tweenInfo = new TweenInfo(duration, Enum.EasingStyle.Linear);
+		const tween = TweenService.Create(orb, tweenInfo, {
+			Position: targetPos
+		});
+
+		tween.Play();
+		
+		tween.Completed.Connect(() => {
+			this.instance.Destroy();
+		});
+
+		Debris.AddItem(this.instance, duration + 2);
+	}
+}
+---
+
+FILE: ./src/client/controllers/AutoTargetController.ts
+import { Controller, OnStart } from "@flamework/core";
+import { CombatNetworking } from "shared/networking/CombatNetworking";
+
+@Controller({})
+export class AutoTargetController implements OnStart {
+    // Получаем доступ к событиям
+    private events = CombatNetworking.createClient({});
+
+    onStart() {
+        print("[AutoTargetController] 🎯 Система захвата целей активна");
+
+        // Просто уведомляем сервер один раз
+        this.events.setAutoAttackState.fire(true);
+    }
+}
+
+---
+
+FILE: ./src/client/controllers/CameraController.ts
+import { Controller, OnStart } from "@flamework/core";
+import { Players, Workspace, UserInputService, RunService } from "@rbxts/services";
+
+@Controller({})
+export class CameraController implements OnStart {
+	private player = Players.LocalPlayer;
+	private rootPart?: BasePart;
+
+	private yaw = 0;
+	private pitch = 20;
+	private isRightMouseDown = false;
+
+	// --- НАСТРОЙКИ ---
+	private readonly DISTANCE = 20;
+	private readonly SENSITIVITY = 0.4;
+	private readonly MIN_PITCH = 5; 
+	private readonly MAX_PITCH = 75;
+	private readonly SMOOTH_SPEED = 25; 
+	private readonly RETURN_SPEED = 1.5; // Скорость доводки камеры за спину
+
+	onStart() {
+		const onCharAdded = (char: Model) => {
+			this.rootPart = char.WaitForChild("HumanoidRootPart", 10) as BasePart;
+			// Начальный ракурс
+			const [, rootYaw] = this.rootPart.CFrame.ToOrientation();
+			this.yaw = math.deg(rootYaw) + 180;
+		};
+
+		this.player.CharacterAdded.Connect(onCharAdded);
+		if (this.player.Character) onCharAdded(this.player.Character);
+
+		// Управление правой кнопкой мыши
+		UserInputService.InputBegan.Connect((input) => {
+			if (input.UserInputType === Enum.UserInputType.MouseButton2) {
+				this.isRightMouseDown = true;
+				UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition;
+			}
+		});
+
+		UserInputService.InputEnded.Connect((input) => {
+			if (input.UserInputType === Enum.UserInputType.MouseButton2) {
+				this.isRightMouseDown = false;
+				UserInputService.MouseBehavior = Enum.MouseBehavior.Default;
+			}
+		});
+
+		// Вращение мышью
+		UserInputService.InputChanged.Connect((input) => {
+			if (this.isRightMouseDown && input.UserInputType === Enum.UserInputType.MouseMovement) {
+				this.yaw -= input.Delta.X * this.SENSITIVITY;
+				this.pitch -= input.Delta.Y * this.SENSITIVITY;
+				this.pitch = math.clamp(this.pitch, this.MIN_PITCH, this.MAX_PITCH);
+			}
+		});
+
+		RunService.RenderStepped.Connect((dt) => this.updateCamera(dt));
+	}
+
+	private updateCamera(dt: number) {
+		if (!this.rootPart) return;
+		const camera = Workspace.CurrentCamera;
+		if (!camera) return;
+
+		camera.CameraType = Enum.CameraType.Scriptable;
+
+		const humanoid = this.player.Character?.FindFirstChildOfClass("Humanoid");
+		
+		if (!this.isRightMouseDown) {
+			// Проверяем, движется ли персонаж
+			if (humanoid && humanoid.MoveDirection.Magnitude > 0.1) {
+				// Вычисляем угол направления движения (куда жмет игрок)
+				const moveDir = humanoid.MoveDirection;
+				const targetYawDeg = math.deg(math.atan2(moveDir.X, moveDir.Z)) + 180;
+
+				// Плавный поворот за спину (низкий коэффициент, чтобы не бегать по кругу)
+				this.yaw = this.lerpAngle(this.yaw, targetYawDeg, dt * this.RETURN_SPEED);
+				this.pitch = math.lerp(this.pitch, 25, dt * this.RETURN_SPEED);
+			} else {
+				// Если игрок остановился, МЫ НЕ ТРОГАЕМ YAW. 
+				// Камера просто остается в последнем положении.
+				this.pitch = math.lerp(this.pitch, 25, dt * this.RETURN_SPEED);
+			}
+		}
+
+		// РАСЧЕТ ПОЗИЦИИ (Математически верная сфера)
+		const yawRad = math.rad(this.yaw);
+		const pitchRad = math.rad(this.pitch);
+
+		const finalOffset = new Vector3(
+			math.sin(yawRad) * math.cos(pitchRad),
+			math.sin(pitchRad),
+			math.cos(yawRad) * math.cos(pitchRad)
+		).mul(this.DISTANCE);
+
+		const targetPosition = this.rootPart.Position.add(finalOffset);
+		const targetCFrame = CFrame.lookAt(targetPosition, this.rootPart.Position);
+
+		// Применяем плавное следование
+		const alpha = math.clamp(1 - math.exp(-this.SMOOTH_SPEED * dt), 0, 1);
+		camera.CFrame = camera.CFrame.Lerp(targetCFrame, alpha);
+	}
+
+	// Помощник для интерполяции углов без прыжков через 0/360
+	private lerpAngle(a: number, b: number, t: number): number {
+		let delta = (b - a) % 360;
+		if (delta > 180) delta -= 360;
+		if (delta < -180) delta += 360;
+		return a + delta * math.clamp(t, 0, 1);
+	}
+}
+
+---
+
+FILE: ./src/client/controllers/CorpseCollectionController.ts
+import { Controller, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, UserInputService, RunService, CollectionService } from "@rbxts/services";
+import { CorpseNetworking } from "shared/networking/CorpseNetworking";
+
+@Controller({})
+export class CorpseCollectionController implements OnStart {
+	private player = Players.LocalPlayer;
+	private events = CorpseNetworking.createClient({});
+	private components = Dependency<Components>();
+
+	private isHolding = false;
+	private currentTargetCorpse?: Model;
+	private progressGui?: ScreenGui;
+	private progressBar?: Frame;
+	private progressLabel?: TextLabel;
+
+	onStart() {
+		print("[CorpseCollection] 💀 Система сбора запущена");
+		this.setupUI();
+		this.setupInput();
+		this.setupProximityCheck();
+	}
+
+	private setupUI() {
+		this.progressGui = new Instance("ScreenGui");
+		this.progressGui.Name = "ResurrectionUI";
+		this.progressGui.ResetOnSpawn = false;
+		this.progressGui.IgnoreGuiInset = true;
+		this.progressGui.Parent = this.player.WaitForChild("PlayerGui");
+
+		this.progressBar = new Instance("Frame");
+		this.progressBar.Name = "ProgressBar";
+		this.progressBar.Size = new UDim2(0.3, 0, 0.05, 0);
+		this.progressBar.Position = new UDim2(0.5, -0.15, 0.8, 0);
+		this.progressBar.BackgroundColor3 = new Color3(0.15, 0.15, 0.15);
+		this.progressBar.BorderSizePixel = 0;
+		this.progressBar.Visible = false;
+		this.progressBar.Parent = this.progressGui;
+
+		const fill = new Instance("Frame");
+		fill.Name = "Fill";
+		fill.Size = new UDim2(0, 0, 1, 0);
+		fill.BackgroundColor3 = Color3.fromRGB(138, 43, 226);
+		fill.BorderSizePixel = 0;
+		fill.Parent = this.progressBar;
+
+		this.progressLabel = new Instance("TextLabel");
+		this.progressLabel.Name = "Label";
+		this.progressLabel.Size = new UDim2(1, 0, 1, 0);
+		this.progressLabel.BackgroundTransparency = 1;
+		this.progressLabel.Text = "Зажми E для воскрешения";
+		this.progressLabel.TextColor3 = new Color3(1, 1, 1);
+		this.progressLabel.TextSize = 14;
+		this.progressLabel.Font = Enum.Font.GothamSemibold;
+		this.progressLabel.Parent = this.progressBar;
+	}
+
+	private setupInput() {
+		UserInputService.InputBegan.Connect((input, gameProcessed) => {
+			if (gameProcessed) return;
+			if (input.KeyCode === Enum.KeyCode.E) {
+				this.startHold();
+			}
+		});
+		UserInputService.InputEnded.Connect((input) => {
+			if (input.KeyCode === Enum.KeyCode.E) {
+				this.stopHold();
+			}
+		});
+	}
+
+	private setupProximityCheck() {
+		RunService.RenderStepped.Connect(() => {
+			const root = this.player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!root) return;
+
+			let nearest: Model | undefined;
+			let minDist = 20;
+
+			const corpses = CollectionService.GetTagged("Corpse");
+			for (const corpse of corpses) {
+				if (!corpse.IsA("Model")) continue;
+				const dist = root.Position.sub(corpse.GetPivot().Position).Magnitude;
+				if (dist < minDist) {
+					minDist = dist;
+					nearest = corpse as Model;
+				}
+			}
+
+			this.currentTargetCorpse = nearest;
+			if (this.progressLabel) {
+				this.progressLabel.Text = nearest ? "🕯 Зажми E" : "";
+			}
+		});
+
+		this.events.updateProgress.connect((percent) => {
+			if (this.progressBar) {
+				const fill = this.progressBar.FindFirstChild("Fill") as Frame;
+				if (fill) fill.Size = new UDim2(percent, 0, 1, 0);
+			}
+		});
+
+		this.events.resurrectionSuccess.connect(() => {
+			if (this.progressBar) this.progressBar.Visible = false;
+			this.isHolding = false;
+		});
+
+		this.events.resurrectionFailed.connect((reason) => {
+			if (this.progressBar) this.progressBar.Visible = false;
+			this.isHolding = false;
+			print(`[Client] ❌ Воскрешение прервано: ${reason}`);
+		});
+	}
+
+	private startHold() {
+		if (!this.currentTargetCorpse || this.isHolding) return;
+		this.isHolding = true;
+		if (this.progressBar) this.progressBar.Visible = true;
+		this.events.requestResurrection.fire(this.currentTargetCorpse.Name);
+	}
+
+	private stopHold() {
+		if (!this.isHolding) return;
+		this.isHolding = false;
+		if (this.progressBar) this.progressBar.Visible = false;
+		this.events.cancelResurrection.fire();
+	}
+}
+---
+
+FILE: ./src/client/controllers/MovementController.ts
+import { Controller, OnStart } from "@flamework/core";
+import { Players, UserInputService, Workspace, Debris, TweenService } from "@rbxts/services";
+
+@Controller({})
+export class MovementController implements OnStart {
+	private player = Players.LocalPlayer;
+	private character?: Model;
+	private humanoid?: Humanoid;
+	
+	private moveConnection?: RBXScriptConnection;
+	private raycastParams = new RaycastParams();
+
+	onStart() {
+		print("[MovementController] 🏃 Ручное управление готово");
+		
+		this.setupRaycast();
+		
+		this.player.CharacterAdded.Connect((char) => this.onCharacterAdded(char));
+		if (this.player.Character) this.onCharacterAdded(this.player.Character);
+		
+		// ЕДИНЫЙ слушатель ввода
+		UserInputService.InputBegan.Connect((input, processed) => {
+			if (processed) return;
+
+			// 1. Остановка при нажатии WASD
+			const keyCode = input.KeyCode;
+			if (
+				keyCode === Enum.KeyCode.W || 
+				keyCode === Enum.KeyCode.A || 
+				keyCode === Enum.KeyCode.S || 
+				keyCode === Enum.KeyCode.D
+			) {
+				this.Stop();
+				return;
+			}
+
+			// 2. Движение по клику мыши или тапу
+			const isClick = input.UserInputType === Enum.UserInputType.MouseButton1;
+			const isTouch = input.UserInputType === Enum.UserInputType.Touch;
+			
+			if (isClick || isTouch) {
+				const mousePos = UserInputService.GetMouseLocation();
+				const hit = this.getMouseWorldPosition(mousePos);
+				if (hit) this.moveTo(hit);
+			}
+		});
+	}
+
+	private setupRaycast() {
+		this.raycastParams.FilterType = Enum.RaycastFilterType.Exclude;
+	}
+
+	private onCharacterAdded(character: Model) {
+		this.character = character;
+		this.humanoid = character.WaitForChild("Humanoid", 5) as Humanoid;
+		this.raycastParams.FilterDescendantsInstances = [character];
+	}
+
+	private getMouseWorldPosition(mousePos: Vector2): Vector3 | undefined {
+		const camera = Workspace.CurrentCamera;
+		if (!camera) return undefined;
+		
+		const unitRay = camera.ViewportPointToRay(mousePos.X, mousePos.Y);
+		const result = Workspace.Raycast(unitRay.Origin, unitRay.Direction.mul(500), this.raycastParams);
+		
+		return result?.Position;
+	}
+
+	private moveTo(position: Vector3) {
+		if (!this.humanoid) return;
+		
+		this.moveConnection?.Disconnect();
+		
+		this.humanoid.MoveTo(position);
+		this.showMarker(position);
+		
+		this.moveConnection = this.humanoid.MoveToFinished.Connect(() => {
+			this.moveConnection?.Disconnect();
+		});
+	}
+
+	private showMarker(position: Vector3) {
+		const marker = new Instance("Part");
+		marker.Name = "MoveEffect";
+		marker.Shape = Enum.PartType.Cylinder; 
+		marker.Size = new Vector3(0.1, 1.5, 1.5);
+		marker.Color = Color3.fromRGB(170, 85, 255); 
+		marker.Material = Enum.Material.Neon;
+		marker.Anchored = true;
+		marker.CanCollide = false;
+		
+		marker.CFrame = new CFrame(position.add(new Vector3(0, 0.05, 0))).mul(CFrame.Angles(0, 0, math.rad(90)));
+		marker.Parent = Workspace;
+
+		const tween = TweenService.Create(marker, new TweenInfo(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size: new Vector3(0, 0, 0),
+			Transparency: 1
+		});
+		
+		tween.Play();
+		Debris.AddItem(marker, 0.4);
+	}
+
+	public Stop() {
+		this.moveConnection?.Disconnect();
+		if (this.humanoid && this.character?.PrimaryPart) {
+			this.humanoid.MoveTo(this.character.PrimaryPart.Position);
+		}
+	}
+}
+
+---
+
+FILE: ./src/client/main.client.ts
+// src/client/main.client.ts
+import { Flamework } from "@flamework/core";
+
+print("--------------------------------------------------");
+print("🧙‍♂️ NECROMANCER ROGUELITE - КЛИЕНТ ЗАПУСКАЕТСЯ");
+print("--------------------------------------------------");
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ КОМПОНЕНТОВ
+// =========================
+import "./components/CorpseHighlightComponent";
+import "./components/DamagePopupComponent";
+import "./components/EnemyHealthBar";
+import "./components/ProjectileComponent";
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ КОНТРОЛЛЕРОВ
+// =========================
+import "./controllers/AutoTargetController";
+import "./controllers/CameraController";
+import "./controllers/CorpseCollectionController";
+import "./controllers/MovementController";
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ UI
+// =========================
+import "./ui/TopStackPanel";
+import "./ui/PlayerStatsPanel";
+
+Flamework.addPaths("src/client/controllers");
+Flamework.addPaths("src/client/components");
+Flamework.addPaths("src/client/ui");
+
+Flamework.ignite();
+
+print("✅ КЛИЕНТ: Все контроллеры загружены");
+print("--------------------------------------------------");
+---
+
+FILE: ./src/client/ui/PlayerStatsPanel.ts
+import { Controller, OnStart } from "@flamework/core";
+import { Players } from "@rbxts/services";
+import { StatsNetworking } from "shared/networking/StatsNetworking";
+
+interface StatsData {
+	level: number;
+	experience: number;
+	requiredExperience: number;
+	currentHealth: number;
+	maxHealth: number;
+	currentMana: number;
+	maxMana: number;
+}
+
+@Controller({})
+export class PlayerStatsPanel implements OnStart {
+	private events = StatsNetworking.createClient({});
+	
+	private screenGui?: ScreenGui;
+	private frame?: Frame;
+	private levelLabel?: TextLabel;
+	private expBar?: Frame;
+	private expText?: TextLabel;
+	private healthLabel?: TextLabel;
+	private manaLabel?: TextLabel;
+
+	onStart() {
+		print("[PlayerStatsPanel] 🎨 UI панель игрока запущена");
+		this.createUI();
+		
+		this.events.updateStats.connect((stats: StatsData) => {
+			this.updateUI(stats);
+		});
+	}
+
+	private createUI() {
+		const player = Players.LocalPlayer;
+		if (!player) return;
+		
+		this.screenGui = new Instance("ScreenGui");
+		this.screenGui.Name = "PlayerStatsUI";
+		this.screenGui.Parent = player.WaitForChild("PlayerGui");
+		
+		// Главная панель (левый верхний угол)
+		this.frame = new Instance("Frame");
+		this.frame.Name = "StatsPanel";
+		this.frame.Size = new UDim2(0, 250, 0, 120);
+		this.frame.Position = new UDim2(0, 15, 0, 15);
+		this.frame.BackgroundColor3 = Color3.fromRGB(30, 30, 40);
+		this.frame.BackgroundTransparency = 0.2;
+		this.frame.BorderSizePixel = 0;
+		this.frame.Parent = this.screenGui;
+		
+		// Скругление углов
+		const uiCorner = new Instance("UICorner");
+		uiCorner.CornerRadius = new UDim(0, 8);
+		uiCorner.Parent = this.frame;
+		
+		// Заголовок "Некромант"
+		const title = new Instance("TextLabel");
+		title.Name = "Title";
+		title.Size = new UDim2(1, 0, 0, 25);
+		title.Position = new UDim2(0, 0, 0, 5);
+		title.BackgroundTransparency = 1;
+		title.Text = "🧙 НЕКРОМАНТ";
+		title.TextColor3 = Color3.fromRGB(200, 150, 255);
+		title.TextSize = 18;
+		title.TextXAlignment = Enum.TextXAlignment.Center;
+		title.Font = Enum.Font.GothamBold;
+		title.Parent = this.frame;
+		
+		// Уровень
+		this.levelLabel = new Instance("TextLabel");
+		this.levelLabel.Name = "Level";
+		this.levelLabel.Size = new UDim2(1, 0, 0, 25);
+		this.levelLabel.Position = new UDim2(0, 0, 0, 30);
+		this.levelLabel.BackgroundTransparency = 1;
+		this.levelLabel.Text = "Уровень: 1";
+		this.levelLabel.TextColor3 = Color3.fromRGB(255, 215, 100);
+		this.levelLabel.TextSize = 14;
+		this.levelLabel.TextXAlignment = Enum.TextXAlignment.Left;
+		this.levelLabel.Parent = this.frame;
+		
+		// Полоска опыта (фон)
+		const expBg = new Instance("Frame");
+		expBg.Name = "ExpBg";
+		expBg.Size = new UDim2(1, 0, 0, 12);
+		expBg.Position = new UDim2(0, 0, 0, 55);
+		expBg.BackgroundColor3 = Color3.fromRGB(60, 60, 70);
+		expBg.BorderSizePixel = 0;
+		expBg.Parent = this.frame;
+		
+		const expCorner = new Instance("UICorner");
+		expCorner.CornerRadius = new UDim(0, 4);
+		expCorner.Parent = expBg;
+		
+		// Полоска опыта (заполнение)
+		this.expBar = new Instance("Frame");
+		this.expBar.Name = "ExpBar";
+		this.expBar.Size = new UDim2(0, 0, 1, 0);
+		this.expBar.BackgroundColor3 = Color3.fromRGB(100, 200, 255);
+		this.expBar.BorderSizePixel = 0;
+		this.expBar.Parent = expBg;
+		
+		const expBarCorner = new Instance("UICorner");
+		expBarCorner.CornerRadius = new UDim(0, 4);
+		expBarCorner.Parent = this.expBar;
+		
+		// Текст опыта
+		this.expText = new Instance("TextLabel");
+		this.expText.Name = "ExpText";
+		this.expText.Size = new UDim2(1, 0, 1, 0);
+		this.expText.BackgroundTransparency = 1;
+		this.expText.Text = "0/100 опыта";
+		this.expText.TextColor3 = Color3.fromRGB(255, 255, 255);
+		this.expText.TextSize = 10;
+		this.expText.TextXAlignment = Enum.TextXAlignment.Center;
+		this.expText.Font = Enum.Font.Gotham;
+		this.expText.Parent = expBg;
+		
+		// Здоровье
+		this.healthLabel = new Instance("TextLabel");
+		this.healthLabel.Name = "Health";
+		this.healthLabel.Size = new UDim2(0.5, -5, 0, 20);
+		this.healthLabel.Position = new UDim2(0, 0, 0, 70);
+		this.healthLabel.BackgroundTransparency = 1;
+		this.healthLabel.Text = "❤️ 100/100";
+		this.healthLabel.TextColor3 = Color3.fromRGB(255, 100, 100);
+		this.healthLabel.TextSize = 12;
+		this.healthLabel.TextXAlignment = Enum.TextXAlignment.Left;
+		this.healthLabel.Parent = this.frame;
+		
+		// Мана
+		this.manaLabel = new Instance("TextLabel");
+		this.manaLabel.Name = "Mana";
+		this.manaLabel.Size = new UDim2(0.5, -5, 0, 20);
+		this.manaLabel.Position = new UDim2(0.5, 5, 0, 70);
+		this.manaLabel.BackgroundTransparency = 1;
+		this.manaLabel.Text = "💙 200/200";
+		this.manaLabel.TextColor3 = Color3.fromRGB(100, 150, 255);
+		this.manaLabel.TextSize = 12;
+		this.manaLabel.TextXAlignment = Enum.TextXAlignment.Left;
+		this.manaLabel.Parent = this.frame;
+	}
+
+	private updateUI(stats: StatsData) {
+		if (!this.levelLabel || !this.expBar || !this.expText || !this.healthLabel || !this.manaLabel) return;
+		
+		// Обновляем уровень
+		this.levelLabel.Text = `Уровень: ${stats.level}`;
+		
+		// Обновляем полоску опыта
+		const progress = stats.experience / stats.requiredExperience;
+		this.expBar.Size = new UDim2(progress, 0, 1, 0);
+		this.expText.Text = `${stats.experience}/${stats.requiredExperience} опыта`;
+		
+		// Обновляем здоровье
+		this.healthLabel.Text = `❤️ ${stats.currentHealth}/${stats.maxHealth}`;
+		
+		// Обновляем ману
+		this.manaLabel.Text = `💙 ${stats.currentMana}/${stats.maxMana}`;
+		
+		// Анимация при повышении уровня (мигание)
+		if (stats.experience === 0 && stats.level > 1) {
+			this.levelLabel.TextColor3 = Color3.fromRGB(255, 255, 100);
+			task.delay(0.5, () => {
+				if (this.levelLabel) {
+					this.levelLabel.TextColor3 = Color3.fromRGB(255, 215, 100);
+				}
+			});
+		}
+	}
+}
+---
+
+FILE: ./src/client/ui/TopStackPanel.ts
+import { Controller, OnStart } from "@flamework/core";
+import { Players } from "@rbxts/services";
+
+@Controller({})
+export class TopStackPanel implements OnStart {
+	private gui?: ScreenGui;
+	private label?: TextLabel;
+
+	onStart() {
+		this.setupUI();
+	}
+
+	private setupUI() {
+		this.gui = new Instance("ScreenGui");
+		this.gui.Name = "ArmyStackPanel";
+		this.gui.ResetOnSpawn = false;
+		this.gui.Parent = Players.LocalPlayer.WaitForChild("PlayerGui");
+
+		this.label = new Instance("TextLabel");
+		this.label.Name = "ArmyCount";
+		this.label.Size = new UDim2(0.2, 0, 0.05, 0);
+		this.label.Position = new UDim2(0.5, -0.1, 0.05, 0); // По центру сверху
+		this.label.BackgroundColor3 = new Color3(0, 0, 0);
+		this.label.BackgroundTransparency = 0.5;
+		this.label.TextColor3 = new Color3(1, 1, 1);
+		this.label.TextSize = 18;
+		this.label.Font = Enum.Font.GothamBold;
+		this.label.Text = "🧟 Армия: 0/5";
+		this.label.Parent = this.gui;
+	}
+
+	// Этот метод можно вызывать из ResurrectionService через Networking для обновления UI
+	public updateArmyCount(current: number, max: number) {
+		if (this.label) {
+			this.label.Text = `🧟 Армия: ${current}/${max}`;
+		}
+	}
+}
+---
+
+FILE: ./src/server/components/CorpseComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+@Component({
+	tag: "Corpse",
+})
+export class CorpseComponent extends BaseComponent<{}, Model> implements OnStart {
+	public templateId: string = "";
+	public spawnTime: number = 0;
+	private readonly lifetime = 60;
+
+	onStart() {
+		// 🛠 Читаем атрибуты, которые установил EnemyService
+		this.templateId = this.instance.GetAttribute("templateId") as string || "Unknown";
+		this.spawnTime = this.instance.GetAttribute("spawnTime") as number || os.clock();
+
+		print(`[CorpseComponent] 🪦 Труп создан: ${this.templateId} в ${this.spawnTime}`);
+
+		// Автоудаление через 60 сек
+		task.delay(this.lifetime, () => {
+			if (this.instance.Parent) {
+				this.instance.Destroy();
+			}
+		});
+	}
+}
+---
+
+FILE: ./src/server/components/EnemyComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+@Component({
+	tag: "Enemy",
+})
+export class EnemyComponent extends BaseComponent<{}, Model> implements OnStart {
+	public rootPart!: BasePart;
+
+	onStart() {
+		// Безопасный поиск главной части
+		const root = this.instance.PrimaryPart 
+			|| (this.instance.FindFirstChild("HumanoidRootPart") as BasePart | undefined);
+
+		if (!root || !root.IsA("BasePart")) {
+			warn(`[EnemyComponent] ❌ У ${this.instance.Name} нет корректного RootPart`);
+			return;
+		}
+
+		this.rootPart = root;
+	}
+
+	/**
+	 * Удобный метод для AI и расчетов расстояния
+	 */
+	public getPosition(): Vector3 {
+		return this.rootPart.Position;
+	}
+}
+
+---
+
+FILE: ./src/server/components/LifeComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+@Component({
+	tag: "HasHealth",
+})
+export class LifeComponent extends BaseComponent<{}, Model> implements OnStart {
+	public humanoid?: Humanoid; // Сделали опциональным для безопасности
+
+	onStart() {
+		const humanoid = this.instance.FindFirstChildOfClass("Humanoid");
+		if (!humanoid) {
+			warn(`[LifeComponent] ❌ У объекта ${this.instance.Name} нет Humanoid`);
+			return;
+		}
+		this.humanoid = humanoid;
+	}
+
+	public takeDamage(amount: number) {
+		// Защита от вызова до инициализации или если humanoid пропал
+		if (!this.humanoid) return;
+		this.humanoid.TakeDamage(amount);
+	}
+
+	public isAlive(): boolean {
+		return this.humanoid ? this.humanoid.Health > 0 : false;
+	}
+}
+
+---
+
+FILE: ./src/server/components/ProjectileComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+interface ProjectileAttributes {
+	OwnerId: number;
+	TargetPos: Vector3;
+	Speed: number;
+}
+
+@Component({
+	tag: "Projectile",
+})
+export class ProjectileComponent extends BaseComponent<ProjectileAttributes, Model> implements OnStart {
+	
+	onStart() {
+		// Временно отключено для отладки
+		// const ownerId = this.attributes.OwnerId;
+		// const targetPos = this.attributes.TargetPos;
+		// const speed = this.attributes.Speed;
+	}
+
+	onDestroy() {
+		// Очистка
+	}
+}
+---
+
+FILE: ./src/server/components/SummonComponent.ts
+// src/server/components/SummonComponent.ts
+import { Component, BaseComponent } from "@flamework/components";
+import { OnStart } from "@flamework/core";
+
+export type WeaponType = "RustySword" | "BoneBlade" | "SpectralDagger";
+
+@Component({
+	tag: "Summon",
+})
+export class SummonComponent extends BaseComponent<{}, Model> implements OnStart {
+	public ownerId: number = 0;
+	public templateId: string = "";
+	public summonTime: number = 0;
+	public weaponType: WeaponType = "RustySword";
+
+	onStart() {
+		this.ownerId = this.instance.GetAttribute("OwnerId") as number || 0;
+		this.templateId = this.instance.GetAttribute("TemplateId") as string || "Unknown";
+		this.weaponType = (this.instance.GetAttribute("WeaponType") as WeaponType) || "RustySword";
+		this.summonTime = this.instance.GetAttribute("SummonTime") as number || os.clock();
+
+		print(`[SummonComponent] 🧟 Юнит ${this.templateId} [${this.weaponType}] призван игроком ${this.ownerId}`);
+	}
+}
+---
+
+FILE: ./src/server/main.server.ts
+// src/server/main.server.ts
+import { Flamework } from "@flamework/core";
+
+print("🏰 NECROMANCER ROGUELITE - СЕРВЕР ЗАПУСКАЕТСЯ");
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ КОМПОНЕНТОВ
+// =========================
+import "./components/EnemyComponent";
+import "./components/LifeComponent";
+import "./components/CorpseComponent";
+import "./components/SummonComponent";
+import "./components/ProjectileComponent";
+
+// =========================
+// 📦 ПРЯМЫЕ ИМПОРТЫ СЕРВИСОВ
+// =========================
+import "./services/EnemyService";
+import "./services/GameService";
+import "./services/PlayerDataService";
+import "./services/CombatService";
+import "./services/ResurrectionService";
+import "./services/UnitBehaviorService";
+import "./services/UnitIndicatorService";
+import "./services/StatsUpdateService";
+import "./services/ProgressionService";
+import "./services/InvisibleFloorService";
+import "./services/SummonBuilder";
+
+// Автоматическая регистрация
+Flamework.addPaths("src/server/services");
+Flamework.addPaths("src/server/components");
+
+Flamework.ignite();
+
+print("✅ СЕРВЕР ГОТОВ");
+---
+
+FILE: ./src/server/services/CombatService.ts
+// src/server/services/CombatService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, RunService, Workspace, CollectionService } from "@rbxts/services";
+import { EnemyService } from "./EnemyService";
+import { EnemyComponent } from "server/components/EnemyComponent";
+import { LifeComponent } from "server/components/LifeComponent";
+import { CombatNetworking } from "shared/networking/CombatNetworking";
+
+@Service({})
+export class CombatService implements OnStart {
+	private autoAttackPlayers = new Set<number>();
+	private combatStates = new Map<number, { nextAttackTime: number }>();
+	
+	private events = CombatNetworking.createServer({});
+	private components!: Components;
+
+	constructor(private readonly enemyService: EnemyService) {}
+
+	onStart() {
+		print("[CombatService] 🔥 Боевая система запущена (ECS Projectiles)");
+		this.components = Dependency<Components>();
+
+		this.events.setAutoAttackState.connect((player: Player, state: boolean) => {
+			if (state) {
+				this.autoAttackPlayers.add(player.UserId);
+			} else {
+				this.autoAttackPlayers.delete(player.UserId);
+				this.combatStates.delete(player.UserId);
+			}
+		});
+
+		RunService.Heartbeat.Connect(() => this.onHeartbeat());
+	}
+
+	private onHeartbeat() {
+		const now = os.clock();
+		for (const userId of this.autoAttackPlayers) {
+			const player = Players.GetPlayerByUserId(userId);
+			const character = player?.Character;
+			const root = character?.PrimaryPart;
+			if (!player || !character || !root) continue;
+
+			let state = this.combatStates.get(userId);
+			if (!state) {
+				state = { nextAttackTime: 0 };
+				this.combatStates.set(userId, state);
+			}
+			if (now < state.nextAttackTime) continue;
+
+			const target = this.enemyService.getNearestEnemy(root.Position, 40);
+			
+			if (!target) continue;
+			
+			// Исправлено: убран второй аргумент
+			const life = this.components.getComponent<LifeComponent>(target.instance);
+			if (!life || !life.isAlive()) continue;
+			
+			const enemyModel = target.instance;
+			if (!enemyModel.Parent) continue;
+
+			this.performAttack(player, target);
+			state.nextAttackTime = now + 1.0;
+		}
+	}
+
+	private performAttack(player: Player, target: EnemyComponent) {
+		// Исправлено: убран второй аргумент
+		const life = this.components.getComponent<LifeComponent>(target.instance);
+		const character = player.Character;
+		if (!life || !life.isAlive() || !character) return;
+
+		const startPos = character.GetPivot().Position.add(new Vector3(0, 3, 0));
+		const targetPos = target.instance.GetPivot().Position;
+		const distance = startPos.sub(targetPos).Magnitude;
+		const speed = 40; 
+		const travelTime = distance / speed;
+
+		const projectileModel = new Instance("Model");
+		projectileModel.Name = "Projectile";
+		
+		const orb = new Instance("Part");
+		orb.Name = "Orb";
+		orb.Shape = Enum.PartType.Ball;
+		orb.Size = new Vector3(2, 2, 2);
+		orb.Material = Enum.Material.Neon;
+		orb.Color = Color3.fromRGB(138, 43, 226);
+		orb.CanCollide = false;
+		orb.Anchored = true;
+		orb.Position = startPos;
+		orb.Parent = projectileModel;
+
+		projectileModel.SetAttribute("TargetPos", targetPos);
+		projectileModel.SetAttribute("Speed", speed);
+		projectileModel.SetAttribute("OwnerId", player.UserId);
+
+		CollectionService.AddTag(projectileModel, "Projectile");
+		projectileModel.Parent = Workspace;
+
+		task.delay(travelTime, () => {
+			if (!projectileModel.Parent) return;
+			
+			// Исправлено: убран второй аргумент
+			const currentLife = this.components.getComponent<LifeComponent>(target.instance);
+			if (currentLife && target.instance.Parent && currentLife.isAlive()) {
+				currentLife.takeDamage(10);
+				
+				this.enemyService.recordAttackOnEnemy(target.instance, player.UserId);
+				print(`[Combat] 💥 Попадание! 10 урона по ${target.instance.Name}`);
+			}
+			
+			projectileModel.Destroy();
+		});
+	}
+}
+---
+
+FILE: ./src/server/services/EnemyService.ts
+// src/server/services/EnemyService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Workspace, HttpService, ReplicatedStorage, Players, CollectionService } from "@rbxts/services";
+import { EnemyPresets, EnemyData } from "shared/types/EnemyTypes";
+import { EnemyComponent } from "server/components/EnemyComponent";
+import { LifeComponent } from "server/components/LifeComponent";
+import { CorpseComponent } from "server/components/CorpseComponent";
+import { ProgressionService } from "./ProgressionService";
+
+@Service({})
+export class EnemyService implements OnStart {
+	private skeletonTemplate?: Model;
+	private components = Dependency<Components>();
+	private pendingAttacks = new Map<Instance, number>();
+	private templateReady = false; // Флаг готовности
+
+	onStart() {
+		print("[EnemyService] 👹 Система врагов запущена");
+		this.loadTemplates(); // Убираем task.wait(1)
+	}
+
+	// =========================
+	// 📦 ЗАГРУЗКА ШАБЛОНОВ
+	// =========================
+	private loadTemplates() {
+		const enemiesFolder = Workspace.FindFirstChild("World")?.FindFirstChild("Enemies") as Folder;
+		let template = enemiesFolder?.FindFirstChild("SkeletonWarrior") as Model;
+
+		if (!template) {
+			template = Workspace.FindFirstChild("SkeletonWarrior") as Model;
+		}
+
+		if (!template) {
+			warn("[EnemyService] ❌ SkeletonWarrior НЕ найден");
+			return;
+		}
+
+		this.skeletonTemplate = template.Clone();
+		this.skeletonTemplate.Parent = ReplicatedStorage;
+		this.templateReady = true; // Шаблон загружен
+		print("[EnemyService] ✅ Шаблон SkeletonWarrior загружен");
+	}
+
+	// =========================
+	// 🎯 ПОИСК ВРАГА
+	// =========================
+	public getNearestEnemy(position: Vector3, maxDistance: number): EnemyComponent | undefined {
+		let nearest: EnemyComponent | undefined;
+		let nearestDist = maxDistance;
+
+		const enemies = this.components.getAllComponents<EnemyComponent>(EnemyComponent);
+
+		for (const enemy of enemies) {
+			const life = this.components.getComponent<LifeComponent>(enemy.instance);
+			if (!life || !life.isAlive()) continue;
+
+			const root = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!root) continue;
+
+			const dist = root.Position.sub(position).Magnitude;
+			if (dist < nearestDist) {
+				nearestDist = dist;
+				nearest = enemy;
+			}
+		}
+		return nearest;
+	}
+
+	// =========================
+	// 📝 ЗАПИСЬ АТАКИ (ДЛЯ НАГРАДЫ)
+	// =========================
+	public recordAttackOnEnemy(enemy: Instance, playerUserId: number) {
+		this.pendingAttacks.set(enemy, playerUserId);
+	}
+
+	private getKillerUserId(enemy: Instance): number | undefined {
+		return this.pendingAttacks.get(enemy);
+	}
+
+	private clearAttacks(enemy: Instance) {
+		this.pendingAttacks.delete(enemy);
+	}
+
+	// =========================
+	// 🧟 СПАВН ВРАГА
+	// =========================
+	public spawnSkeleton(position: Vector3): Model | undefined {
+		if (!this.templateReady || !this.skeletonTemplate) {
+			warn("[EnemyService] ❌ Шаблон ещё не загружен");
+			return;
+		}
+
+		const preset = EnemyPresets.skeleton;
+		const model = this.skeletonTemplate.Clone();
+
+		const id = HttpService.GenerateGUID(false);
+		model.Name = `${preset.modelName}_${id.sub(1, 6)}`;
+
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+
+		if (!humanoid || !root) {
+			model.Destroy();
+			warn("[EnemyService] ❌ Некорректная модель врага");
+			return;
+		}
+
+		// ECS теги
+		CollectionService.AddTag(model, "Enemy");
+		CollectionService.AddTag(model, "HasHealth");
+
+		// Статы
+		humanoid.MaxHealth = preset.maxHealth;
+		humanoid.Health = preset.health;
+		humanoid.WalkSpeed = preset.walkSpeed;
+
+		model.PrimaryPart = root;
+
+		// Raycast для земли
+		const rayParams = new RaycastParams();
+		rayParams.FilterDescendantsInstances = [model];
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		
+		const rayOrigin = position.add(new Vector3(0, 10, 0));
+		const rayDirection = new Vector3(0, -20, 0);
+		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
+		
+		const finalPos = rayResult 
+			? new Vector3(position.X, rayResult.Position.Y + 2.5, position.Z)
+			: position;
+
+		model.PivotTo(new CFrame(finalPos));
+
+		const folder = Workspace.FindFirstChild("World")?.FindFirstChild("Enemies") as Folder;
+		model.Parent = folder ?? Workspace;
+
+		// AI
+		this.startEnemyAI(model, humanoid, root, preset);
+
+		// Смерть
+		humanoid.Died.Connect(() => this.onEnemyDeath(model, preset.modelName));
+
+		return model;
+	}
+
+	// =========================
+	// 🤖 AI
+	// =========================
+	private startEnemyAI(model: Model, humanoid: Humanoid, root: BasePart, preset: EnemyData) {
+		let lastAttack = 0;
+		const cooldown = 1 / preset.attackSpeed;
+
+		task.spawn(() => {
+			while (model.Parent && humanoid.Health > 0) {
+				task.wait(0.25);
+
+				let target: Model | undefined;
+				let nearestDist = 50;
+
+				for (const player of Players.GetPlayers()) {
+					const char = player.Character;
+					const pRoot = char?.FindFirstChild("HumanoidRootPart") as BasePart;
+					if (!char || !pRoot) continue;
+
+					const dist = root.Position.sub(pRoot.Position).Magnitude;
+					if (dist < nearestDist) {
+						nearestDist = dist;
+						target = char;
+					}
+				}
+
+				if (!target) continue;
+				const targetRoot = target.PrimaryPart;
+				if (!targetRoot) continue;
+
+				if (nearestDist <= preset.attackRange) {
+					humanoid.MoveTo(root.Position);
+					const now = os.clock();
+					if (now - lastAttack >= cooldown) {
+						lastAttack = now;
+						const life = this.components.getComponent<LifeComponent>(target);
+						if (life) {
+							life.takeDamage(preset.damage);
+						}
+					}
+				} else {
+					humanoid.MoveTo(targetRoot.Position);
+				}
+			}
+		});
+	}
+
+	// =========================
+	// 💀 СМЕРТЬ ВРАГА → ТРУП
+	// =========================
+	private onEnemyDeath(model: Model, templateId: string) {
+		print(`[EnemyService] 💀 ${model.Name} убит → превращаем в труп`);
+
+		// 💰 Начисляем опыт убийце
+		const killerUserId = this.getKillerUserId(model);
+		if (killerUserId) {
+			const killer = Players.GetPlayerByUserId(killerUserId);
+			if (killer) {
+				try {
+					const progression = Dependency<ProgressionService>();
+					progression.grantExperience(killer, 50);
+					print(`[EnemyService] ✨ ${killer.Name} получил 50 опыта за убийство`);
+				} catch (e) {
+					warn("[EnemyService] ProgressionService не найден, опыт не начислен");
+				}
+			}
+		}
+		this.clearAttacks(model);
+
+		// Сохраняем позицию
+		const originalPos = model.GetPivot().Position;
+
+		// Удаляем боевые теги
+		CollectionService.RemoveTag(model, "Enemy");
+		CollectionService.RemoveTag(model, "HasHealth");
+
+		// Атрибуты для трупа
+		model.SetAttribute("templateId", templateId);
+		model.SetAttribute("spawnTime", os.clock());
+
+		// Тег трупа
+		CollectionService.AddTag(model, "Corpse");
+
+		// Превращаем в лежащий труп
+		this.transformToCorpse(model, originalPos);
+
+		// Отключаем Humanoid
+		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
+		if (humanoid) {
+			humanoid.BreakJointsOnDeath = false;
+			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
+		}
+	}
+
+	// =========================
+	// 🪦 ТРАНСФОРМАЦИЯ В ТРУП
+	// =========================
+	private transformToCorpse(model: Model, spawnPos: Vector3) {
+		const rayParams = new RaycastParams();
+		rayParams.FilterDescendantsInstances = [model];
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		
+		const rayOrigin = spawnPos.add(new Vector3(0, 5, 0));
+		const rayDirection = new Vector3(0, -15, 0);
+		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
+		
+		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
+
+		// Исправлено: math.random -> прямой вызов, math.rad -> ручной перевод
+		const randomRotY = math.random() * math.pi * 2;
+		const fallAngleDeg = 85 + math.random() * 10;
+		const fallAngleRad = fallAngleDeg * math.pi / 180;
+		
+		model.PivotTo(
+			new CFrame(new Vector3(spawnPos.X, groundY, spawnPos.Z))
+				.mul(CFrame.Angles(0, randomRotY, fallAngleRad))
+		);
+
+		for (const child of model.GetDescendants()) {
+			if (child.IsA("BasePart")) {
+				child.Color = Color3.fromRGB(65, 65, 65);
+				child.Material = Enum.Material.Concrete;
+				child.Anchored = true;
+				child.CanCollide = false;
+			}
+			if (child.IsA("ParticleEmitter") || child.IsA("Light") || child.IsA("Sound")) {
+				child.Destroy();
+			}
+		}
+
+		const marker = new Instance("Part");
+		marker.Name = "CorpseMarker";
+		marker.Shape = Enum.PartType.Cylinder;
+		marker.Size = new Vector3(0.2, 0.8, 0.2);
+		marker.Color = Color3.fromRGB(100, 150, 255);
+		marker.Material = Enum.Material.Neon;
+		marker.Anchored = true;
+		marker.CanCollide = false;
+		marker.Transparency = 0.3;
+		marker.CFrame = model.GetPivot().add(new Vector3(0, 2.5, 0));
+		marker.Parent = model;
+	}
+}
+---
+
+FILE: ./src/server/services/GameService.ts
+// src/server/services/GameService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, Workspace, RunService } from "@rbxts/services";
+import { PlayerDataService } from "./PlayerDataService";
+import { EnemyService } from "./EnemyService";
+
+@Service({})
+export class GameService implements OnStart {
+	private components!: Components;
+
+	constructor(
+		private readonly playerDataService: PlayerDataService,
+		private readonly enemyService: EnemyService,
+	) {}
+
+	onStart() {
+		print("[GameService] 🏰 Сервис игры запущен");
+		
+		Players.CharacterAutoLoads = true;
+		this.components = Dependency<Components>();
+
+		this.playerDataService.onDataLoaded.Connect((player) => {
+			this.onPlayerReady(player);
+		});
+
+		for (const player of Players.GetPlayers()) {
+			const data = this.playerDataService.getPlayerData(player);
+			if (data) this.onPlayerReady(player);
+		}
+	}
+
+	private onPlayerReady(player: Player) {
+		print(`[GameService] ✅ Игрок ${player.Name} загружен и готов.`);
+
+		player.CharacterAdded.Connect((character) => {
+			this.onCharacterSpawned(player, character);
+		});
+
+		if (player.Character) {
+			this.onCharacterSpawned(player, player.Character);
+		}
+	}
+
+	private onCharacterSpawned(player: Player, character: Model) {
+		const rootPart = character.WaitForChild("HumanoidRootPart", 5) as BasePart;
+		if (!rootPart) return;
+
+		const spawnPos = this.getSpawnPosition();
+		character.PivotTo(spawnPos);
+		print(`[GameService] 🧙 ${player.Name} телепортирован на спавн.`);
+
+		if (RunService.IsStudio()) {
+			this.spawnDebugEnemies(rootPart);
+		}
+	}
+
+	private spawnDebugEnemies(rootPart: BasePart) {
+		task.defer(() => {
+			const playerPos = rootPart.Position;
+			const count = 10;
+			const radius = 30;
+
+			print(`[GameService] 🧪 Спавним ${count} тестовых врагов по кругу...`);
+
+			for (let i = 0; i < count; i++) {
+				const angle = (i / count) * math.pi * 2;
+				const offset = new Vector3(math.cos(angle) * radius, 5, math.sin(angle) * radius);
+				const pos = playerPos.add(offset);
+
+				const enemy = this.enemyService.spawnSkeleton(pos);
+				
+				if (enemy) {
+					const humanoid = enemy.FindFirstChildOfClass("Humanoid") as Humanoid;
+					if (humanoid) {
+						humanoid.MaxHealth = 100;
+						humanoid.Health = 100;
+						
+						// Сетевое владение для врагов (только после добавления в Workspace)
+						task.defer(() => {
+							for (const child of enemy.GetDescendants()) {
+								if (child.IsA("BasePart") && !child.Anchored) {
+									child.SetNetworkOwner(undefined);
+								}
+							}
+						});
+					}
+					print(`[GameService] ✅ Враг #${i+1} заспавнен`);
+				}
+			}
+			print(`[GameService] 🎯 Все ${count} врагов готовы к бою!`);
+		});
+	}
+
+	private getSpawnPosition(): CFrame {
+		const world = Workspace.FindFirstChild("World");
+		const locations = world?.FindFirstChild("Locations");
+		const wellSpawn = locations?.FindFirstChild("WellSpawn") as BasePart;
+
+		if (wellSpawn) {
+			return wellSpawn.CFrame.add(new Vector3(0, 5, 0));
+		}
+		return new CFrame(0, 10, 0);
+	}
+}
+---
+
+FILE: ./src/server/services/InvisibleFloorService.ts
+import { Service, OnStart } from "@flamework/core";
+import { Workspace } from "@rbxts/services";
+
+@Service({})
+export class InvisibleFloorService implements OnStart {
+	onStart() {
+		this.createInvisibleFloor();
+	}
+
+	private createInvisibleFloor() {
+		if (Workspace.FindFirstChild("InvisibleAI_Floor")) return;
+		
+		const floor = new Instance("Part");
+		floor.Name = "InvisibleAI_Floor";
+		floor.Size = new Vector3(2048, 1, 2048);
+		floor.Position = new Vector3(0, -0.5, 0);
+		floor.Transparency = 1;
+		floor.Anchored = true;
+		floor.CanCollide = true;
+		floor.CastShadow = false;
+		floor.Material = Enum.Material.SmoothPlastic;
+		floor.Parent = Workspace;
+		
+		print("[InvisibleFloorService] 🏗 Искусственный пол создан");
+	}
+}
+---
+
+FILE: ./src/server/services/PlayerDataService.ts
+import { Service, OnStart } from "@flamework/core";
+import { Players, DataStoreService } from "@rbxts/services";
+import { Signal } from "@rbxts/lemon-signal";
+import { GameConfig } from "shared/constants/GameConfig";
+import { NecromancerStats } from "shared/types/GameTypes";
+
+export interface PlayerData {
+	userId: number;
+	stats: NecromancerStats;
+	gold: number;
+	soulEssence: number;
+	currentRun: number;
+	requiredExperience: number;
+}
+
+@Service({})
+export class PlayerDataService implements OnStart {
+	private dataStore = DataStoreService.GetDataStore("NecromancerData_v1");
+	private playerDataMap = new Map<number, PlayerData>();
+	private dirtyPlayers = new Set<number>();
+
+	public readonly onDataLoaded = new Signal<(player: Player, data: PlayerData) => void>();
+
+	onStart() {
+		print("[PlayerDataService] 💾 Система сохранений запущена");
+
+		Players.PlayerAdded.Connect((player) => this.loadPlayerData(player));
+
+		Players.PlayerRemoving.Connect((player) => {
+			this.savePlayerData(player);
+			this.playerDataMap.delete(player.UserId);
+			this.dirtyPlayers.delete(player.UserId);
+		});
+
+		task.spawn(() => {
+			while (task.wait(60)) {
+				this.saveDirtyPlayers();
+			}
+		});
+	}
+
+	private reconcile(source: object, template: object): object {
+		// Используем Lua pairs через for..in
+		for (const [key, value] of pairs(template)) {
+			const sourceValue = (source as Record<string, unknown>)[key as string];
+
+			if (sourceValue === undefined) {
+				(source as Record<string, unknown>)[key as string] = value;
+			} else if (typeIs(value, "table") && typeIs(sourceValue, "table")) {
+				this.reconcile(sourceValue as object, value as object);
+			}
+		}
+		return source;
+	}
+
+	private calculateRequiredExp(level: number): number {
+		return math.floor(100 * (level ^ 1.5));
+	}
+
+	private createDefaultData(player: Player): PlayerData {
+		const startingStats = { ...GameConfig.startingStats } as NecromancerStats;
+		return {
+			userId: player.UserId,
+			stats: startingStats,
+			gold: 0,
+			soulEssence: 0,
+			currentRun: 1,
+			requiredExperience: this.calculateRequiredExp(1),
+		};
+	}
+
+	private async loadPlayerData(player: Player) {
+		const userId = player.UserId;
+		const key = `User_${userId}`;
+		const template = this.createDefaultData(player);
+
+		const [success, data] = pcall(() => this.dataStore.GetAsync(key));
+
+		let finalData: PlayerData;
+
+		if (success && data !== undefined) {
+			finalData = this.reconcile(data as PlayerData, template) as PlayerData;
+			print(`[PlayerDataService] 📥 Данные синхронизированы для: ${player.Name}`);
+		} else {
+			finalData = template;
+			print(`[PlayerDataService] 🆕 Создан профиль для: ${player.Name}`);
+		}
+
+		this.playerDataMap.set(userId, finalData);
+		this.onDataLoaded.Fire(player, finalData);
+	}
+
+	private saveDirtyPlayers() {
+		if (this.dirtyPlayers.size() === 0) return;
+
+		print(`[PlayerDataService] 🔃 Авто-сохранение ${this.dirtyPlayers.size()} игроков...`);
+		for (const userId of this.dirtyPlayers) {
+			const player = Players.GetPlayerByUserId(userId);
+			if (player) {
+				this.savePlayerData(player);
+			}
+		}
+		this.dirtyPlayers.clear();
+	}
+
+	private savePlayerData(player: Player) {
+		const userId = player.UserId;
+		const data = this.playerDataMap.get(userId);
+
+		if (data) {
+			const [success, err] = pcall(() => this.dataStore.SetAsync(`User_${userId}`, data));
+			if (success) {
+				this.dirtyPlayers.delete(userId);
+			} else {
+				warn(`[PlayerDataService] ❌ Ошибка DataStore для ${player.Name}: ${err}`);
+			}
+		}
+	}
+
+	public getPlayerData(player: Player): PlayerData | undefined {
+		return this.playerDataMap.get(player.UserId);
+	}
+
+	public updatePlayerData(player: Player, updater: (data: PlayerData) => void) {
+		const data = this.playerDataMap.get(player.UserId);
+		if (data) {
+			updater(data);
+			this.dirtyPlayers.add(player.UserId);
+		}
+	}
+}
+---
+
+FILE: ./src/server/services/ProgressionService.ts
+import { Service, OnStart } from "@flamework/core";
+import { PlayerDataService } from "./PlayerDataService";
+import { GameConfig } from "shared/constants/GameConfig";
+
+@Service({})
+export class ProgressionService implements OnStart {
+    constructor(private playerDataService: PlayerDataService) {}
+
+    onStart() {
+        print("[ProgressionService] 📈 Система прогрессии запущена");
+    }
+
+    /**
+     * Формула опыта: 100 * (уровень ^ 1.5)
+     * Ур 1 -> 100, Ур 2 -> ~282, Ур 3 -> ~519
+     */
+    private calculateRequiredExp(level: number): number {
+        return math.floor(100 * math.pow(level, 1.5));
+    }
+
+    /**
+     * Начислить опыт игроку
+     */
+    public grantExperience(player: Player, amount: number) {
+        this.playerDataService.updatePlayerData(player, (data) => {
+            data.stats.experience += amount;
+
+            // Проверка на повышение уровня (цикл, если опыта дали очень много)
+            while (data.stats.experience >= data.requiredExperience) {
+                data.stats.experience -= data.requiredExperience;
+                data.stats.level += 1;
+                
+                // Обновляем порог для следующего уровня
+                data.requiredExperience = this.calculateRequiredExp(data.stats.level);
+
+                // Бонусы за уровень из GameConfig
+                const statsPerLevel = GameConfig.levelProgression.statsPerLevel;
+                data.stats.maxHealth += statsPerLevel.maxHealth;
+                data.stats.currentHealth = data.stats.maxHealth;
+                data.stats.maxMana += statsPerLevel.maxMana;
+                data.stats.currentMana = data.stats.maxMana;
+                data.stats.intelligence += statsPerLevel.intelligence;
+                data.stats.spirit += statsPerLevel.spirit;
+                data.stats.vitality += statsPerLevel.vitality;
+                data.stats.manaRegen = GameConfig.manaSystem.baseRegen + (data.stats.spirit * GameConfig.manaSystem.regenFromSpirit);
+
+                this.onLevelUp(player, data.stats.level);
+            }
+        });
+    }
+
+    private onLevelUp(player: Player, newLevel: number) {
+        print(`[ProgressionService] ✨ Игрок ${player.Name} достиг уровня ${newLevel}!`);
+        // Здесь в будущем: запуск эффекта на клиенте или выдача награды
+    }
+
+    /**
+     * Получить прогресс до следующего уровня (0-1)
+     */
+    public getProgress(player: Player): number {
+        const data = this.playerDataService.getPlayerData(player);
+        if (!data) return 0;
+        return data.stats.experience / data.requiredExperience;
+    }
+}
+---
+
+FILE: ./src/server/services/ResurrectionService.ts
+// src/server/services/ResurrectionService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, Workspace, CollectionService, ReplicatedStorage, HttpService } from "@rbxts/services";
+import { CorpseComponent } from "server/components/CorpseComponent";
+import { SummonComponent, WeaponType } from "server/components/SummonComponent";
+import { CorpseNetworking } from "shared/networking/CorpseNetworking";
+import { SummonBuilder } from "./SummonBuilder";
+
+@Service({})
+export class ResurrectionService implements OnStart {
+	private components = Dependency<Components>();
+	private events = CorpseNetworking.createServer({});
+	private summonBuilder = Dependency<SummonBuilder>();
+
+	private playerProcesses = new Map<number, { corpseId: string; startTime: number }>();
+	private armyCounts = new Map<number, number>();
+	private playerCooldowns = new Map<number, number>();
+
+	private readonly HOLD_DURATION = 1.5;
+	private readonly MANA_COST = 10;
+	private readonly MAX_ARMY = 5;
+	private readonly COOLDOWN = 2.0;
+
+	onStart() {
+		print("[ResurrectionService] 🔄 Система воскрешения запущена");
+		
+		this.events.requestResurrection.connect((player, corpseId: string) => {
+			this.handleResurrectionRequest(player, corpseId);
+		});
+
+		this.events.cancelResurrection.connect((player) => {
+			this.cancelProcess(player.UserId);
+		});
+
+		CollectionService.GetInstanceAddedSignal("Corpse").Connect(() => this.enforceCorpseLimit());
+	}
+
+	private enforceCorpseLimit() {
+		const corpsesSet = CollectionService.GetTagged("Corpse");
+		const limit = 100;
+		if (corpsesSet.size() <= limit) return;
+
+		const toSort: Array<{ inst: Instance; time: number }> = [];
+		for (const corpse of corpsesSet) {
+			const comp = this.components.getComponent<CorpseComponent>(corpse);
+			if (comp) toSort.push({ inst: corpse, time: comp.spawnTime });
+		}
+		toSort.sort((a, b) => a.time < b.time);
+		const removeCount = toSort.size() - limit;
+		for (let i = 0; i < removeCount; i++) {
+			const item = toSort[i];
+			if (item && item.inst.Parent) item.inst.Destroy();
+		}
+	}
+
+	private handleResurrectionRequest(player: Player, corpseId: string) {
+		const userId = player.UserId;
+		
+		if (this.playerCooldowns.has(userId) && os.clock() < (this.playerCooldowns.get(userId) || 0)) {
+			this.events.resurrectionFailed(player, "Кулдаун"); 
+			return;
+		}
+		
+		if ((this.armyCounts.get(userId) || 0) >= this.MAX_ARMY) {
+			this.events.resurrectionFailed(player, "Лимит армии"); 
+			return;
+		}
+
+		const corpses = CollectionService.GetTagged("Corpse");
+		let corpse: Model | undefined;
+		for (const c of corpses) {
+			if (c.Name === corpseId && c.IsA("Model")) { corpse = c; break; }
+		}
+
+		if (!corpse) { 
+			this.events.resurrectionFailed(player, "Труп не найден"); 
+			return; 
+		}
+
+		const charRoot = player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
+		if (!charRoot || charRoot.Position.sub(corpse.GetPivot().Position).Magnitude > 20) {
+			this.events.resurrectionFailed(player, "Слишком далеко"); 
+			return;
+		}
+
+		this.startHoldProcess(player, corpse);
+	}
+
+	private startHoldProcess(player: Player, corpse: Model) {
+		const userId = player.UserId;
+		this.cancelProcess(userId);
+		const startTime = os.clock();
+		this.playerProcesses.set(userId, { corpseId: corpse.Name, startTime });
+
+		task.spawn(() => {
+			while (this.playerProcesses.has(userId) && os.clock() - startTime < this.HOLD_DURATION) {
+				const charRoot = player.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
+				if (!charRoot || !corpse.Parent || charRoot.Position.sub(corpse.GetPivot().Position).Magnitude > 25) {
+					this.events.resurrectionFailed(player, "Прервано: далеко или труп исчез");
+					this.events.updateProgress(player, 0);
+					this.playerProcesses.delete(userId); 
+					return;
+				}
+				const progress = math.min((os.clock() - startTime) / this.HOLD_DURATION, 1);
+				this.events.updateProgress(player, progress);
+				task.wait(0.1);
+			}
+
+			if (this.playerProcesses.has(userId)) {
+				const comp = this.components.getComponent<CorpseComponent>(corpse);
+				if (comp) {
+					this.spawnSummon(player, comp, corpse);
+					this.events.resurrectionSuccess(player);
+					this.playerCooldowns.set(userId, os.clock() + this.COOLDOWN);
+				}
+				this.playerProcesses.delete(userId);
+			}
+		});
+	}
+
+	private cancelProcess(userId: number) { 
+		this.playerProcesses.delete(userId); 
+	}
+
+	private spawnSummon(player: Player, comp: CorpseComponent, corpse: Model) {
+		const userId = player.UserId;
+		const currentCount = this.armyCounts.get(userId) || 0;
+		
+		if (currentCount >= this.MAX_ARMY) {
+			print(`[Resurrection] ❌ Лимит армии ${this.MAX_ARMY} достигнут`);
+			return;
+		}
+		
+		this.armyCounts.set(userId, currentCount + 1);
+		this.events.updateMana(player, 40, 50);
+
+		// БЕРЁМ ПОЗИЦИЮ ТРУПА
+		const corpsePos = corpse.GetPivot().Position;
+		print(`[Resurrection] Позиция трупа: X=${corpsePos.X}, Y=${corpsePos.Y}, Z=${corpsePos.Z}`);
+		
+		// СОЗДАЁМ ЮНИТА
+		const summonModel = this.summonBuilder.createSummonModel(comp.templateId, corpsePos);
+
+		if (summonModel) {
+			const chosen = this.summonBuilder.getRandomWeapon();
+
+			// Теги
+			CollectionService.AddTag(summonModel, "Summon");
+			CollectionService.AddTag(summonModel, "HasHealth");
+			
+			// Атрибуты
+			summonModel.SetAttribute("OwnerId", userId);
+			summonModel.SetAttribute("WeaponType", chosen);
+			summonModel.SetAttribute("TemplateId", comp.templateId);
+			summonModel.SetAttribute("SummonTime", os.clock());
+
+			// Красные глаза
+			this.addCrimsonEyes(summonModel);
+			
+			// Удаляем труп
+			if (corpse.Parent) corpse.Destroy();
+
+			this.updateArmyCountUI(player);
+			
+			print(`[Resurrection] ✅ ${player.Name} воскресил скелета! Армия: ${currentCount + 1}/${this.MAX_ARMY}`);
+		} else {
+			// Если не удалось создать — откатываем счётчик
+			this.armyCounts.set(userId, currentCount);
+			this.events.resurrectionFailed(player, "Ошибка создания юнита");
+		}
+	}
+
+	private updateArmyCountUI(player: Player) {
+		const current = this.armyCounts.get(player.UserId) || 0;
+		this.events.updateArmyCount(player, current, this.MAX_ARMY);
+	}
+
+	private addCrimsonEyes(model: Model) {
+		const head = model.FindFirstChild("Head") as BasePart || model.PrimaryPart;
+		if (!head) return;
+
+		const createEye = (offset: Vector3) => {
+			const eye = new Instance("Part");
+			eye.Size = new Vector3(0.2, 0.2, 0.2);
+			eye.Color = Color3.fromRGB(255, 0, 0);
+			eye.Material = Enum.Material.Neon;
+			eye.CanCollide = false;
+			eye.Parent = model;
+
+			const weld = new Instance("WeldConstraint");
+			weld.Part0 = head;
+			weld.Part1 = eye;
+			weld.Parent = eye;
+			
+			eye.CFrame = head.CFrame.ToWorldSpace(new CFrame(offset));
+		};
+		createEye(new Vector3(0.25, 0.2, -0.6));
+		createEye(new Vector3(-0.25, 0.2, -0.6));
+	}
+}
+---
+
+FILE: ./src/server/services/StatsUpdateService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Players } from "@rbxts/services";
+import { PlayerDataService } from "./PlayerDataService";
+import { ProgressionService } from "./ProgressionService";
+import { StatsNetworking } from "shared/networking/StatsNetworking";
+
+@Service({})
+export class StatsUpdateService implements OnStart {
+	private events = StatsNetworking.createServer({});
+	
+	constructor(
+		private playerDataService: PlayerDataService,
+		private progressionService: ProgressionService
+	) {}
+
+	onStart() {
+		print("[StatsUpdateService] 📊 Система обновления статистики запущена");
+		
+		// Отправляем статистику при загрузке игрока
+		this.playerDataService.onDataLoaded.Connect((player, data) => {
+			this.sendStatsToPlayer(player);
+		});
+		
+		// Обновляем статистику при изменении данных (каждые 2 секунды)
+		task.spawn(() => {
+			while (true) {
+				task.wait(2);
+				for (const player of Players.GetPlayers()) {
+					this.sendStatsToPlayer(player);
+				}
+			}
+		});
+	}
+	
+	private sendStatsToPlayer(player: Player) {
+		const data = this.playerDataService.getPlayerData(player);
+		if (!data) return;
+		
+		const requiredExp = data.requiredExperience;
+		
+		this.events.updateStats.fire(player, {
+			level: data.stats.level,
+			experience: data.stats.experience,
+			requiredExperience: requiredExp,
+			currentHealth: data.stats.currentHealth,
+			maxHealth: data.stats.maxHealth,
+			currentMana: data.stats.currentMana,
+			maxMana: data.stats.maxMana,
+		});
+	}
+}
+---
+
+FILE: ./src/server/services/SummonBuilder.ts
+import { Service } from "@flamework/core";
+import { Workspace, ReplicatedStorage, HttpService } from "@rbxts/services";
+import { WeaponType } from "server/components/SummonComponent";
+
+@Service({})
+export class SummonBuilder {
+	
+	public createSummonModel(templateId: string, spawnPosition: Vector3): Model | undefined {
+		const template = ReplicatedStorage.FindFirstChild("SkeletonWarrior") as Model;
+		if (!template) {
+			warn("[SummonBuilder] ❌ Шаблон SkeletonWarrior не найден");
+			return undefined;
+		}
+
+		const model = template.Clone();
+		model.Name = `Summon_${HttpService.GenerateGUID(false).sub(1, 6)}`;
+		
+		const humanoid = model.FindFirstChildOfClass("Humanoid");
+		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+
+		if (!humanoid || !root) {
+			model.Destroy();
+			warn("[SummonBuilder] ❌ Модель не имеет Humanoid или HumanoidRootPart");
+			return undefined;
+		}
+
+		// ========== НАСТРОЙКА ФИЗИКИ ==========
+		for (const child of model.GetDescendants()) {
+			if (child.IsA("BasePart")) {
+				child.Anchored = false;
+				child.CanCollide = true;
+				child.CastShadow = true;
+			}
+		}
+		
+		root.Anchored = false;
+		root.CanCollide = true;
+		root.Size = new Vector3(2, 2, 1);
+
+		// ========== НАСТРОЙКА HUMANOD ==========
+		humanoid.MaxHealth = 50;
+		humanoid.Health = 50;
+		humanoid.WalkSpeed = 16;
+		humanoid.AutoRotate = true;
+		humanoid.HipHeight = 2;
+		humanoid.PlatformStand = false;
+		humanoid.JumpPower = 0;
+
+		// ========== НАХОДИМ ЗЕМЛЮ ==========
+		const finalPos = this.findGroundPosition(spawnPosition, model);
+		
+		model.PivotTo(new CFrame(finalPos));
+		model.Parent = Workspace;
+
+		// ========== СЕТЕВОЕ ВЛАДЕНИЕ (ТОЛЬКО ПОСЛЕ РАЗМЕЩЕНИЯ) ==========
+		task.spawn(() => {
+			task.wait(0.1);
+			for (const descendant of model.GetDescendants()) {
+				if (descendant.IsA("BasePart") && !descendant.Anchored) {
+					descendant.SetNetworkOwner(undefined);
+				}
+			}
+		});
+
+		print(`[SummonBuilder] ✅ Скелет создан, позиция Y: ${finalPos.Y}`);
+		
+		return model;
+	}
+
+	private findGroundPosition(position: Vector3, excludeModel: Model): Vector3 {
+		const rayParams = new RaycastParams();
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		rayParams.FilterDescendantsInstances = [excludeModel];
+		
+		const rayOrigin = position.add(new Vector3(0, 15, 0));
+		const rayDirection = new Vector3(0, -30, 0);
+		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
+		
+		if (rayResult) {
+			return rayResult.Position.add(new Vector3(0, 2.5, 0));
+		}
+		return position.add(new Vector3(0, 3, 0));
+	}
+
+	public getRandomWeapon(): WeaponType {
+		const weapons: WeaponType[] = ["RustySword", "BoneBlade", "SpectralDagger"];
+		return weapons[math.random(1, 3) - 1];
+	}
+}
+---
+
+FILE: ./src/server/services/UnitBehaviorService.ts
+import { Service, OnStart, Dependency } from "@flamework/core";
+import { Components } from "@flamework/components";
+import { Players, TweenService, RunService } from "@rbxts/services";
+import { SummonComponent } from "server/components/SummonComponent";
+import { EnemyComponent } from "server/components/EnemyComponent";
+import { UnitIndicatorService } from "./UnitIndicatorService";
+import { WEAPON_STATS, COMBAT_CONFIG, getLifeComponent, isEnemyAlive } from "./UnitCombatUtils";
+
+@Service({})
+export class UnitBehaviorService implements OnStart {
+	private components = Dependency<Components>();
+	private indicatorService = Dependency<UnitIndicatorService>();
+	
+	private lastAttackTime = new Map<string, number>();
+	private lastPathFindTime = new Map<string, number>();
+	private lastTargetPositions = new Map<string, Vector3>();
+	private isReady = false;
+	private frameCount = 0;
+
+	onStart() {
+		print("[UnitBehaviorService] 🧠 Логика юнитов активна.");
+		task.wait(0.1);
+		this.isReady = true;
+		
+		// Используем Heartbeat для плавности
+		RunService.Heartbeat.Connect((dt) => {
+			if (!this.isReady) return;
+			try {
+				this.frameCount++;
+				this.update(dt);
+			} catch (e) {
+				warn(`[UnitBehaviorService] ❌ Ошибка: ${e}`);
+			}
+		});
+	}
+
+	private update(dt: number) {
+		const summons = this.components.getAllComponents<SummonComponent>(SummonComponent);
+		const enemies = this.components.getAllComponents<EnemyComponent>(EnemyComponent);
+
+		for (const summon of summons) {
+			const model = summon.instance;
+			if (!model || !model.Parent) continue;
+
+			const unitRoot = model.FindFirstChild("HumanoidRootPart") as BasePart;
+			const humanoid = model.FindFirstChildOfClass("Humanoid");
+			
+			if (!unitRoot || !humanoid || humanoid.Health <= 0) continue;
+
+			if (unitRoot.Anchored) unitRoot.Anchored = false;
+			
+			humanoid.AutoRotate = true;
+			humanoid.WalkSpeed = COMBAT_CONFIG.MOVE_SPEED;
+
+			const owner = Players.GetPlayerByUserId(summon.ownerId);
+			const ownerRoot = owner?.Character?.FindFirstChild("HumanoidRootPart") as BasePart;
+			if (!ownerRoot) continue;
+
+			const unitPos = unitRoot.Position;
+
+			// ========== ПОИСК ВРАГА (каждые 4 кадра для оптимизации) ==========
+			let nearestEnemy: EnemyComponent | undefined;
+			let nearestDist: number = COMBAT_CONFIG.CHASE_RANGE;
+			let targetPos: Vector3 | undefined;
+
+			if (this.frameCount % 4 === 0) {
+				for (const enemy of enemies) {
+					const eRoot = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
+					if (!eRoot || !isEnemyAlive(this.components, enemy.instance)) continue;
+
+					const dx = unitPos.X - eRoot.Position.X;
+					const dz = unitPos.Z - eRoot.Position.Z;
+					const dist = math.sqrt(dx * dx + dz * dz);
+					
+					if (dist < nearestDist) {
+						nearestDist = dist;
+						nearestEnemy = enemy;
+						targetPos = eRoot.Position;
+					}
+				}
+			}
+
+			// ========== ВЫЗОВ MOVETO С ИНТЕРВАЛОМ (НЕ КАЖДЫЙ КАДР) ==========
+			const now = os.clock();
+			const lastMove = this.lastPathFindTime.get(model.Name) || 0;
+			
+			if (targetPos && now - lastMove > 0.1) { // Раз в 0.1 секунды
+				const lastTarget = this.lastTargetPositions.get(model.Name);
+				if (!lastTarget || lastTarget.sub(targetPos).Magnitude > 2) {
+					humanoid.MoveTo(targetPos);
+					this.lastPathFindTime.set(model.Name, now);
+					this.lastTargetPositions.set(model.Name, targetPos);
+				}
+			} else if (!targetPos) {
+				const distToOwner = unitPos.sub(ownerRoot.Position).Magnitude;
+				if (distToOwner > COMBAT_CONFIG.FOLLOW_DISTANCE) {
+					if (now - lastMove > 0.2) {
+						humanoid.MoveTo(ownerRoot.Position);
+						this.lastPathFindTime.set(model.Name, now);
+					}
+				} else if (humanoid.WalkSpeed !== 0) {
+					humanoid.MoveTo(unitPos);
+					humanoid.WalkSpeed = 0;
+				}
+			}
+
+			// ========== АТАКА (каждые 2 кадра) ==========
+			if (nearestEnemy && targetPos && this.frameCount % 2 === 0) {
+				const nowTime = os.clock();
+				const last = this.lastAttackTime.get(model.Name) || 0;
+				const weapon = summon.weaponType || "RustySword";
+				const stats = WEAPON_STATS[weapon] || WEAPON_STATS.RustySword;
+				const effectiveRange = stats.range + 2.0;
+
+				if (nearestDist <= effectiveRange && (nowTime - last >= COMBAT_CONFIG.ATTACK_COOLDOWN)) {
+					const life = getLifeComponent(this.components, nearestEnemy.instance);
+					if (life && life.isAlive()) {
+						life.takeDamage(stats.damage);
+						this.lastAttackTime.set(model.Name, nowTime);
+						
+						print(`[UnitAI] ⚔️ ${model.Name} атаковал ${nearestEnemy.instance.Name} на ${stats.damage}`);
+					}
+				}
+			}
+
+			// Синхронизация модели с индикатором
+			const indicatorPos = this.indicatorService.getIndicatorPosition(model.Name);
+			if (indicatorPos && this.frameCount % 30 === 0) {
+				const distanceToIndicator = unitPos.sub(indicatorPos).Magnitude;
+				if (distanceToIndicator > 5) {
+					model.PivotTo(new CFrame(indicatorPos));
+				}
+			}
+
+			// Обновление индикаторов (не каждый кадр)
+			if (this.frameCount % 2 === 0) {
+				this.indicatorService.update(model.Name, nearestEnemy ? "chase" : "follow", 
+					targetPos || ownerRoot.Position, 
+					unitPos);
+			}
+		}
+	}
+}
+---
+
+FILE: ./src/server/services/UnitCombatUtils.ts
+import { WeaponType } from "server/components/SummonComponent";
+import { LifeComponent } from "server/components/LifeComponent";
+import { Components } from "@flamework/components";
+
+export const WEAPON_STATS: Record<WeaponType, { damage: number; range: number }> = {
+	RustySword: { damage: 8, range: 6 },
+	BoneBlade: { damage: 12, range: 7 },
+	SpectralDagger: { damage: 6, range: 5 }
+};
+
+export const COMBAT_CONFIG = {
+	CHASE_RANGE: 50,
+	FOLLOW_DISTANCE: 8,
+	MOVE_SPEED: 16,
+	ATTACK_COOLDOWN: 1.2
+} as const;
+
+export function getLifeComponent(components: Components, instance: Instance): LifeComponent | undefined {
+	const [success, life] = pcall(() => components.getComponent<LifeComponent>(instance));
+	if (success && life) {
+		return life as LifeComponent;
+	}
+	return undefined;
+}
+
+export function isEnemyAlive(components: Components, instance: Instance): boolean {
+	const life = getLifeComponent(components, instance);
+	return life !== undefined && life.isAlive();
+}
+---
+
+FILE: ./src/server/services/UnitIndicatorService.ts
+import { Service, OnStart } from "@flamework/core";
+import { Workspace } from "@rbxts/services";
+
+interface IndicatorData {
+	circle: BasePart;
+	arrow: BasePart;
+	container: Model;
+}
+
+@Service({})
+export class UnitIndicatorService implements OnStart {
+	private indicators = new Map<string, IndicatorData>();
+	private readonly CHASE_RANGE = 50;
+
+	onStart() {
+		print("[UnitIndicatorService] 🎨 Система индикаторов запущена");
+	}
+
+	public update(unitId: string, state: string, targetPos: Vector3, unitPos: Vector3) {
+		const { circle, arrow } = this.getOrCreate(unitId);
+		const hasTarget = (state === "chase" || state === "attack");
+		
+		const rayParams = new RaycastParams();
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
+		rayParams.FilterDescendantsInstances = [circle, arrow];
+		
+		const rayResult = Workspace.Raycast(unitPos.add(new Vector3(0, 5, 0)), new Vector3(0, -15, 0), rayParams);
+		const groundY = rayResult ? rayResult.Position.Y + 0.1 : unitPos.Y - 2.9;
+
+		circle.Size = new Vector3(0.1, this.CHASE_RANGE * 2, this.CHASE_RANGE * 2);
+		circle.CFrame = new CFrame(unitPos.X, groundY, unitPos.Z).mul(CFrame.Angles(0, 0, 90 * math.pi / 180));
+
+		if (hasTarget) {
+			arrow.Transparency = 0;
+			const arrowHeight = groundY + 0.3;
+			arrow.CFrame = new CFrame(
+				new Vector3(unitPos.X, arrowHeight, unitPos.Z),
+				new Vector3(targetPos.X, arrowHeight, targetPos.Z)
+			);
+			circle.Color = Color3.fromRGB(255, 50, 50);
+			circle.Transparency = 0.6;
+			circle.Material = Enum.Material.Neon;
+		} else {
+			arrow.Transparency = 1;
+			circle.Color = Color3.fromRGB(50, 200, 100);
+			circle.Transparency = 0.85;
+			circle.Material = Enum.Material.SmoothPlastic;
+		}
+	}
+
+	// Получить позицию индикатора по ID юнита
+	public getIndicatorPosition(unitId: string): Vector3 | undefined {
+		const data = this.indicators.get(unitId);
+		if (data) {
+			return data.circle.Position;
+		}
+		return undefined;
+	}
+
+	public destroy(unitId: string) {
+		const data = this.indicators.get(unitId);
+		if (data) {
+			data.container.Destroy();
+			this.indicators.delete(unitId);
+		}
+	}
+
+	private getOrCreate(unitId: string): IndicatorData {
+		if (this.indicators.has(unitId)) {
+			return this.indicators.get(unitId)!;
+		}
+
+		const container = new Instance("Model");
+		container.Name = `Indicator_${unitId}`;
+		container.Parent = Workspace;
+
+		const circle = new Instance("Part");
+		circle.Name = "DetectionCircle";
+		circle.Shape = Enum.PartType.Cylinder;
+		circle.Size = new Vector3(0.1, this.CHASE_RANGE * 2, this.CHASE_RANGE * 2);
+		circle.Anchored = true;
+		circle.CanCollide = false;
+		circle.Transparency = 0.85;
+		circle.Color = Color3.fromRGB(50, 200, 100);
+		circle.Material = Enum.Material.SmoothPlastic;
+		circle.Parent = container;
+
+		const arrow = new Instance("Part");
+		arrow.Name = "StateArrow";
+		arrow.Shape = Enum.PartType.Wedge;
+		arrow.Size = new Vector3(2, 0.15, 1);
+		arrow.Anchored = true;
+		arrow.CanCollide = false;
+		arrow.Color = Color3.fromRGB(255, 255, 255);
+		arrow.Parent = container;
+
+		const data = { circle, arrow, container };
+		this.indicators.set(unitId, data);
+		return data;
+	}
+}
+---
+
+FILE: ./src/shared/constants/GameConfig.ts
+import { NecromancerStats } from "shared/types/GameTypes";
+
+export const GameConfig = {
+    version: "0.1.0",
+    
+    // Стартовые статы некроманта
+    startingStats: {
+        level: 1,
+        experience: 0,
+        maxHealth: 100,
+        currentHealth: 100,
+        maxMana: 200,
+        currentMana: 200,
+        manaRegen: 10,
+        intelligence: 10,
+        spirit: 10,
+        vitality: 10,
+        resistances: { // Сгруппировал как в интерфейсе
+            fire: 0,
+            ice: 0,
+            poison: 0,
+            dark: 0,
+        },
+    } satisfies NecromancerStats, // Проверка, что конфиг не врет типам
+    
+    // ... остальной твой код без изменений ...
+    levelProgression: {
+        baseExpToLevel: 100,
+        expMultiplier: 1.2,
+        maxLevel: 100,
+        statsPerLevel: {
+            intelligence: 2,
+            spirit: 1,
+            vitality: 2,
+            maxHealth: 15,
+            maxMana: 10,
+        },
+    },
+
+    manaSystem: {
+        baseRegen: 10,
+        regenFromSpirit: 0.5,
+        combatRegenMultiplier: 0.5,
+        outOfCombatRegenMultiplier: 1.5,
+    },
+
+    spells: {
+        fireball: {
+            damage: 40,
+            manaCost: 20,
+            cooldown: 1.5,
+            castRange: 50,
+            projectileSpeed: 80,
+            effect: { burnDamage: 10, burnDuration: 3 },
+        },
+        // ... и так далее
+    },
+
+    world: {
+        collectionRadius: 20,
+        locationOrder: ["well", "graveyard", "village", "city", "castle"],
+    },
+} as const;
+
+---
+
+FILE: ./src/shared/module.ts
+export function makeHello(name: string) {
+	return `Hello from ${name}!`;
+}
+
+---
+
+FILE: ./src/shared/networking/CombatNetworking.ts
+// src/shared/networking/CombatNetworking.ts
+import { Networking } from "@flamework/networking";
+
+/**
+ * События сетевого взаимодействия для боевой системы.
+ */
+interface ServerEvents {
+	/** Клиент сообщает серверу: включить (true) или выключить (false) авто-атаку */
+	setAutoAttackState(state: boolean): void;
+}
+
+interface ClientEvents {
+	/** Сервер сообщает клиенту: проиграй эффект удара или звука */
+	playHitEffect(position: Vector3): void;
+	
+	// 🛠 НОВОЕ: Сервер отправляет данные для всплывающего урона
+	/** Показывает всплывающий урон над целью */
+	showDamagePopup(targetId: string, damage: number, position: Vector3): void;
+}
+
+// Экспортируем константу для использования в сервисах и контроллерах
+export const CombatNetworking = Networking.createEvent<ServerEvents, ClientEvents>();
+---
+
+FILE: ./src/shared/networking/CorpseNetworking.ts
+import { Networking } from "@flamework/networking";
+
+interface ServerEvents {
+	/** Клиент хочет начать воскрешение */
+	requestResurrection(corpseId: string): void;
+	/** Клиент отменил удержание или отошёл */
+	cancelResurrection(): void;
+}
+
+interface ClientEvents {
+	/** Обновить прогресс-бар (0.0 - 1.0) */
+	updateProgress(percent: number): void;
+	/** Воскрешение завершено успешно */
+	resurrectionSuccess(): void;
+	/** Воскрешение прервано/отклонено */
+	resurrectionFailed(reason: string): void;
+	/** Обновить текущую ману игрока */
+	updateMana(current: number, max: number): void;
+	/** Обновить количество армии */
+	updateArmyCount(current: number, max: number): void;
+}
+
+export const CorpseNetworking = Networking.createEvent<ServerEvents, ClientEvents>();
+---
+
+FILE: ./src/shared/networking/StatsNetworking.ts
+import { Networking } from "@flamework/networking";
+
+interface ServerToClientEvents {
+	updateStats: (stats: {
+		level: number;
+		experience: number;
+		requiredExperience: number;
+		currentHealth: number;
+		maxHealth: number;
+		currentMana: number;
+		maxMana: number;
+	}) => void;
+}
+
+interface ClientToServerEvents {
+	// Пока пусто
+}
+
+export const StatsNetworking = Networking.createEvent<ClientToServerEvents, ServerToClientEvents>();
+---
+
+FILE: ./src/shared/types/EnemyTypes.ts
+// shared/types/EnemyTypes.ts
+
+export interface EnemyData {
+    id: string;
+    name: string;
+    health: number;
+    maxHealth: number;
+    damage: number;
+    attackRange: number;
+    attackSpeed: number;
+    walkSpeed: number;
+    rewardGold: number;
+    rewardExp: number;
+    modelName: string;
+}
+
+export interface EnemySpawnInfo {
+    enemyType: string;
+    position: Vector3; // Используем встроенный тип Roblox
+    level: number;
+}
+
+export const EnemyPresets: Record<string, EnemyData> = {
+    skeleton: {
+        id: "skeleton",
+        name: "Скелет-воин",
+        health: 50,
+        maxHealth: 50,
+        damage: 10,
+        attackRange: 8,
+        attackSpeed: 1.5,
+        walkSpeed: 12,
+        rewardGold: 10,
+        rewardExp: 20,
+        modelName: "SkeletonModel",
+    },
+    ghost: {
+        id: "ghost",
+        name: "Призрак",
+        health: 30,
+        maxHealth: 30,
+        damage: 8,
+        attackRange: 10,
+        attackSpeed: 1.2,
+        walkSpeed: 14,
+        rewardGold: 15,
+        rewardExp: 25,
+        modelName: "GhostModel",
+    },
+};
+---
+
+FILE: ./src/shared/types/GameTypes.ts
+// ============================================
+// ХАРАКТЕРИСТИКИ НЕКРОМАНТА
+// ============================================
+export interface NecromancerStats {
+    level: number;
+    experience: number;
+    maxHealth: number;
+    currentHealth: number;
+    maxMana: number;
+    currentMana: number;
+    manaRegen: number;
+    intelligence: number;   
+    spirit: number;         
+    vitality: number;       
+    resistances: {
+        fire: number;
+        ice: number;
+        poison: number;
+        dark: number;
+    };
+}
+
+export type SlotType = "weapon" | "helmet" | "chest" | "pants" | "boots" | "gloves" | "cloak" | "ring" | "amulet" | "bracer";
+
+export interface Item {
+    id: string;
+    name: string;
+    type: "weapon" | "armor" | "jewelry";
+    slot: SlotType;
+    rarity: 1 | 2 | 3 | 4 | 5;
+    stats?: Partial<Pick<NecromancerStats, "intelligence" | "spirit" | "vitality" | "manaRegen">>;
+    elementalBonus?: {
+        fire?: number;
+        ice?: number;
+        poison?: number;
+        dark?: number;
+    };
+}
+
+export interface Card {
+    cardId: string;
+    unitType: string;
+    unitName: string;
+    tier: 1 | 2 | 3 | 4 | 5;
+    soulWeight: number;
+    upgradeLevel: number;
+    modifiers: { type: string; value: number; stackable: boolean }[];
+}
+
+export interface Collection {
+    maxSoulWeight: number;
+    currentSoulWeight: number;
+    cards: Card[];
+    activeStack: Card[];
+}
+
+export type SpellType = "fireball" | "iceball" | "poisonball" | "necroball";
+
+export interface Spell {
+    type: SpellType;
+    damage: number;
+    manaCost: number;
+    cooldown: number;
+}
+---
+

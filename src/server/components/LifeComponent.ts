@@ -5,24 +5,26 @@ import { OnStart } from "@flamework/core";
 	tag: "HasHealth",
 })
 export class LifeComponent extends BaseComponent<{}, Model> implements OnStart {
-	public humanoid?: Humanoid; // Сделали опциональным для безопасности
+	public humanoid?: Humanoid;
 
 	onStart() {
-		const humanoid = this.instance.FindFirstChildOfClass("Humanoid");
+		// Используем WaitForChild, так как при спавне Humanoid может появиться чуть позже
+		const humanoid = this.instance.WaitForChild("Humanoid", 5) as Humanoid | undefined;
+		
 		if (!humanoid) {
-			warn(`[LifeComponent] ❌ У объекта ${this.instance.Name} нет Humanoid`);
+			warn(`[LifeComponent] ❌ У объекта ${this.instance.Name} не найден Humanoid`);
 			return;
 		}
 		this.humanoid = humanoid;
 	}
 
 	public takeDamage(amount: number) {
-		// Защита от вызова до инициализации или если humanoid пропал
-		if (!this.humanoid) return;
-		this.humanoid.TakeDamage(amount);
+		if (this.humanoid) {
+			this.humanoid.TakeDamage(amount);
+		}
 	}
 
 	public isAlive(): boolean {
-		return this.humanoid ? this.humanoid.Health > 0 : false;
+		return this.humanoid !== undefined && this.humanoid.Health > 0;
 	}
 }

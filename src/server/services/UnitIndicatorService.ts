@@ -4,6 +4,7 @@ import { Workspace } from "@rbxts/services";
 interface IndicatorData {
 	circle: BasePart;
 	arrow: BasePart;
+	container: Model;
 }
 
 @Service({})
@@ -27,13 +28,11 @@ export class UnitIndicatorService implements OnStart {
 		const groundY = rayResult ? rayResult.Position.Y + 0.1 : unitPos.Y - 2.9;
 
 		circle.Size = new Vector3(0.1, this.CHASE_RANGE * 2, this.CHASE_RANGE * 2);
-		// Исправлено: math.rad(90) -> 90 * math.pi / 180
 		circle.CFrame = new CFrame(unitPos.X, groundY, unitPos.Z).mul(CFrame.Angles(0, 0, 90 * math.pi / 180));
 
 		if (hasTarget) {
 			arrow.Transparency = 0;
 			const arrowHeight = groundY + 0.3;
-			// Исправлено: CFrame.lookAt -> new CFrame(from, to)
 			arrow.CFrame = new CFrame(
 				new Vector3(unitPos.X, arrowHeight, unitPos.Z),
 				new Vector3(targetPos.X, arrowHeight, targetPos.Z)
@@ -49,11 +48,19 @@ export class UnitIndicatorService implements OnStart {
 		}
 	}
 
+	// Получить позицию индикатора по ID юнита
+	public getIndicatorPosition(unitId: string): Vector3 | undefined {
+		const data = this.indicators.get(unitId);
+		if (data) {
+			return data.circle.Position;
+		}
+		return undefined;
+	}
+
 	public destroy(unitId: string) {
 		const data = this.indicators.get(unitId);
 		if (data) {
-			data.circle.Parent?.Destroy();
-			data.arrow.Parent?.Destroy();
+			data.container.Destroy();
 			this.indicators.delete(unitId);
 		}
 	}
@@ -87,7 +94,7 @@ export class UnitIndicatorService implements OnStart {
 		arrow.Color = Color3.fromRGB(255, 255, 255);
 		arrow.Parent = container;
 
-		const data = { circle, arrow };
+		const data = { circle, arrow, container };
 		this.indicators.set(unitId, data);
 		return data;
 	}

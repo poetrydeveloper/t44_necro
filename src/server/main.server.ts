@@ -24,6 +24,8 @@ import "./services/UnitBehaviorService";
 import "./services/UnitIndicatorService";
 import "./services/StatsUpdateService";
 import "./services/ProgressionService";
+import "./services/InvisibleFloorService";
+import "./services/SummonBuilder";
 
 // Автоматическая регистрация
 Flamework.addPaths("src/server/services");

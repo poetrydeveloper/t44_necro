@@ -35,7 +35,9 @@
 		"t44_necro:out/server/services/UnitIndicatorService@UnitIndicatorService": "server/services/UnitIndicatorService@UnitIndicatorService",
 		"t44_necro:out/client/ui/PlayerStatsPanel@PlayerStatsPanel": "client/ui/PlayerStatsPanel@PlayerStatsPanel",
 		"t44_necro:out/server/services/StatsUpdateService@StatsUpdateService": "server/services/StatsUpdateService@StatsUpdateService",
-		"t44_necro:out/shared/networking/StatsNetworking@StatsNetworking": "shared/networking/StatsNetworking@StatsNetworking"
+		"t44_necro:out/shared/networking/StatsNetworking@StatsNetworking": "shared/networking/StatsNetworking@StatsNetworking",
+		"t44_necro:out/server/services/InvisibleFloorService@InvisibleFloorService": "server/services/InvisibleFloorService@InvisibleFloorService",
+		"t44_necro:out/server/services/SummonBuilder@SummonBuilder": "server/services/SummonBuilder@SummonBuilder"
 	},
 	"metadata": {}
 }
