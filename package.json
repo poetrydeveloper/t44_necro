@@ -6,6 +6,7 @@
   "devDependencies": {
     "@rbxts/compiler-types": "^3.0.0-types.0",
     "@rbxts/types": "^1.0.918",
+    "@types/node": "^25.7.0",
     "@typescript-eslint/eslint-plugin": "^8.1.0",
     "@typescript-eslint/parser": "^8.1.0",
     "eslint": "^9.9.0",
@@ -20,7 +21,9 @@
   "scripts": {
     "build": "rbxtsc",
     "watch": "rbxtsc -w",
-    "dev": "rbxtsc -w & rojo serve"
+    "dev": "rbxtsc -w & rojo serve",
+    "sw-map": "node Supervisor/get-map.js",
+    "sw-check": "node Supervisor/checker.js"
   },
   "dependencies": {
     "@flamework/components": "^1.3.2",
