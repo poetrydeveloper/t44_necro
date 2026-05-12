@@ -1,34 +1,92 @@
 import { Service } from "@flamework/core";
 import { Workspace, ReplicatedStorage, HttpService, CollectionService } from "@rbxts/services";
-import { WeaponType } from "server/components/SummonComponent";
+import { WeaponType, UnitType } from "server/components/SummonComponent";
+import { EnemyPresets } from "shared/types/EnemyTypes";
+
+interface UnitTemplate {
+	modelName: string;
+	soulWeight: number;
+	tier: number;
+	health: number;
+	walkSpeed: number;
+}
+
+const UNIT_TEMPLATES: Record<UnitType, UnitTemplate> = {
+	SkeletonWarrior: { 
+		modelName: "Zombie", 
+		soulWeight: 10, 
+		tier: 1,
+		health: 50,
+		walkSpeed: 16,
+	},
+	Ghost: { 
+		modelName: "Ghost", 
+		soulWeight: 15, 
+		tier: 2,
+		health: 40,
+		walkSpeed: 20,
+	},
+	Vampire: { 
+		modelName: "Vampire", 
+		soulWeight: 25, 
+		tier: 3,
+		health: 70,
+		walkSpeed: 14,
+	},
+	Zombie: { 
+		modelName: "Drooling Zombie", 
+		soulWeight: 20, 
+		tier: 2,
+		health: 60,
+		walkSpeed: 12,
+	},
+};
 
 @Service({})
 export class SummonBuilder {
 	
-	public createSummonModel(templateId: string, spawnPosition: Vector3, owner?: Player): Model | undefined {
-		const template = ReplicatedStorage.FindFirstChild(templateId) as Model;
+	public createSummon(unitType: UnitType, spawnPosition: Vector3, owner?: Player): Model | undefined {
+		const templateInfo = UNIT_TEMPLATES[unitType];
+		if (!templateInfo) {
+			warn(`[SummonBuilder] ❌ Неизвестный тип юнита: ${unitType}`);
+			return undefined;
+		}
+		
+		const template = ReplicatedStorage.FindFirstChild(templateInfo.modelName) as Model;
 		if (!template) {
-			warn(`[SummonBuilder] ❌ Шаблон ${templateId} не найден`);
+			warn(`[SummonBuilder] ❌ Шаблон ${templateInfo.modelName} не найден в ReplicatedStorage`);
 			return undefined;
 		}
 
 		const model = template.Clone();
-		model.Name = `Summon_${HttpService.GenerateGUID(false).sub(1, 6)}`;
+		model.Name = `Summon_${unitType}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
 		
-		const humanoid = model.FindFirstChildOfClass("Humanoid");
-		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
-
-		if (!humanoid || !root) {
-			model.Destroy();
-			warn("[SummonBuilder] ❌ Модель не имеет Humanoid или HumanoidRootPart");
-			return undefined;
+		// ========== ПРОВЕРКА И СОЗДАНИЕ HUMANOD ==========
+		let humanoid = model.FindFirstChildOfClass("Humanoid");
+		if (!humanoid) {
+			humanoid = new Instance("Humanoid");
+			humanoid.Parent = model;
+			print(`[SummonBuilder] 🔧 Добавлен Humanoid для ${model.Name}`);
+		}
+		
+		// ========== ПРОВЕРКА HUMANODROOTPART ==========
+		let root = model.FindFirstChild("HumanoidRootPart") as BasePart;
+		if (!root) {
+			// Создаём корень, если его нет
+			root = new Instance("Part");
+			root.Name = "HumanoidRootPart";
+			root.Size = new Vector3(2, 2, 1);
+			root.Anchored = false;
+			root.CanCollide = true;
+			root.Parent = model;
+			model.PrimaryPart = root;
+			print(`[SummonBuilder] 🔧 Добавлен HumanoidRootPart для ${model.Name}`);
 		}
 
-		// ========== ФИЗИКА: Чтобы не рассыпался ==========
+		// ========== ФИЗИКА ==========
 		for (const child of model.GetDescendants()) {
 			if (child.IsA("BasePart")) {
 				child.Anchored = false;
-				// Только RootPart имеет коллизию
 				child.CanCollide = (child.Name === "HumanoidRootPart");
 				child.CastShadow = true;
 				child.Massless = true;
@@ -39,15 +97,15 @@ export class SummonBuilder {
 		root.Size = new Vector3(2, 2, 1);
 
 		// ========== НАСТРОЙКА HUMANOD ==========
-		humanoid.MaxHealth = 50;
-		humanoid.Health = 50;
-		humanoid.WalkSpeed = 16;
+		humanoid.MaxHealth = templateInfo.health;
+		humanoid.Health = templateInfo.health;
+		humanoid.WalkSpeed = templateInfo.walkSpeed;
 		humanoid.AutoRotate = true;
-		humanoid.HipHeight = 2.5; // Увеличено для подъёма
+		humanoid.HipHeight = 2;
 		humanoid.PlatformStand = false;
 		humanoid.JumpPower = 0;
 
-		// ========== ПОЗИЦИОНИРОВАНИЕ (ПОДНИМАЕМ ВЫШЕ) ==========
+		// ========== ПОЗИЦИОНИРОВАНИЕ ==========
 		const finalPos = this.findGroundPosition(spawnPosition, model);
 		model.PivotTo(new CFrame(finalPos));
 		
@@ -59,8 +117,10 @@ export class SummonBuilder {
 			model.SetAttribute("OwnerId", owner.UserId);
 		}
 		
+		model.SetAttribute("UnitType", unitType);
 		model.SetAttribute("WeaponType", this.getRandomWeapon());
-		model.SetAttribute("TemplateId", templateId);
+		model.SetAttribute("SoulWeight", templateInfo.soulWeight);
+		model.SetAttribute("Tier", templateInfo.tier);
 		model.SetAttribute("SummonTime", os.clock());
 
 		model.Parent = Workspace;
@@ -74,16 +134,7 @@ export class SummonBuilder {
 			root.SetNetworkOwner(undefined);
 		});
 
-		// ========== ПРИНУДИТЕЛЬНЫЙ ПОДЪЁМ ==========
-		task.spawn(() => {
-			task.wait(0.05);
-			const currentPos = root.Position;
-			const newPos = new Vector3(currentPos.X, currentPos.Y + 1.5, currentPos.Z);
-			model.PivotTo(new CFrame(newPos));
-			print(`[SummonBuilder] ⬆️ Юнит поднят на Y=${newPos.Y}`);
-		});
-
-		print(`[SummonBuilder] ✅ Скелет создан, позиция Y: ${finalPos.Y}`);
+		print(`[SummonBuilder] ✅ ${unitType} создан, здоровье: ${templateInfo.health}, позиция Y: ${finalPos.Y}`);
 		
 		return model;
 	}
@@ -103,7 +154,9 @@ export class SummonBuilder {
 			weld.Parent = part;
 		}
 		
-		print(`[SummonBuilder] 🔗 Приварено ${parts.size()} частей к корню`);
+		if (parts.size() > 0) {
+			print(`[SummonBuilder] 🔗 Приварено ${parts.size()} частей к корню`);
+		}
 	}
 
 	private findGroundPosition(position: Vector3, excludeModel: Model): Vector3 {
@@ -111,16 +164,14 @@ export class SummonBuilder {
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
 		rayParams.FilterDescendantsInstances = [excludeModel];
 		
-		const rayOrigin = position.add(new Vector3(0, 15, 0)); // Увеличил луч
+		const rayOrigin = position.add(new Vector3(0, 15, 0));
 		const rayDirection = new Vector3(0, -30, 0);
 		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
 		
 		if (rayResult) {
-			// Поднимаем выше: было 2.3, стало 3.5
-			return rayResult.Position.add(new Vector3(0, 3.8, 0));
+			return rayResult.Position.add(new Vector3(0, 2.8, 0));
 		}
-		// Запасной вариант
-		return position.add(new Vector3(0, 5, 0));
+		return position.add(new Vector3(0, 3, 0));
 	}
 
 	public getRandomWeapon(): WeaponType {

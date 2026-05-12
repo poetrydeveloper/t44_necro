@@ -27,6 +27,10 @@ import "./controllers/MovementController";
 import "./ui/TopStackPanel";
 import "./ui/PlayerStatsPanel";
 
+
+// Добавь UI коллекции
+import "./ui/CollectionPanel";
+
 Flamework.addPaths("src/client/controllers");
 Flamework.addPaths("src/client/components");
 Flamework.addPaths("src/client/ui");

@@ -26,6 +26,9 @@ import "./services/StatsUpdateService";
 import "./services/ProgressionService";
 import "./services/InvisibleFloorService";
 import "./services/SummonBuilder";
+import "./services/CollectionService";
+import "./services/SoulWeightService";
+import "./services/CorpseManagerService"; // ✅ ДОБАВЛЕНО
 
 // Автоматическая регистрация
 Flamework.addPaths("src/server/services");

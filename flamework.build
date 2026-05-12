@@ -37,7 +37,11 @@
 		"t44_necro:out/server/services/StatsUpdateService@StatsUpdateService": "server/services/StatsUpdateService@StatsUpdateService",
 		"t44_necro:out/shared/networking/StatsNetworking@StatsNetworking": "shared/networking/StatsNetworking@StatsNetworking",
 		"t44_necro:out/server/services/InvisibleFloorService@InvisibleFloorService": "server/services/InvisibleFloorService@InvisibleFloorService",
-		"t44_necro:out/server/services/SummonBuilder@SummonBuilder": "server/services/SummonBuilder@SummonBuilder"
+		"t44_necro:out/server/services/SummonBuilder@SummonBuilder": "server/services/SummonBuilder@SummonBuilder",
+		"t44_necro:out/server/services/SoulWeightService@SoulWeightService": "server/services/SoulWeightService@SoulWeightService",
+		"t44_necro:out/server/services/CollectionService@CollectionService": "server/services/CollectionService@CollectionService",
+		"t44_necro:out/client/ui/CollectionPanel@CollectionPanel": "client/ui/CollectionPanel@CollectionPanel",
+		"t44_necro:out/server/services/CorpseManagerService@CorpseManagerService": "server/services/CorpseManagerService@CorpseManagerService"
 	},
 	"metadata": {}
 }

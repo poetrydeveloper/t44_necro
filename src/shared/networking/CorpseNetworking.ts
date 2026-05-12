@@ -1,8 +1,8 @@
 import { Networking } from "@flamework/networking";
 
 interface ServerEvents {
-	/** Клиент хочет начать воскрешение */
-	requestResurrection(corpseId: string): void;
+	/** Клиент хочет начать воскрешение (передаёт модель могилы) */
+	requestResurrection(corpse: Model): void;
 	/** Клиент отменил удержание или отошёл */
 	cancelResurrection(): void;
 }

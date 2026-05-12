@@ -58,25 +58,32 @@ export class GameService implements OnStart {
 	private spawnDebugEnemies(rootPart: BasePart) {
 		task.defer(() => {
 			const playerPos = rootPart.Position;
-			const count = 10;
-			const radius = 30;
+			const count = 1; // Только 3 врага вместо 10
+			const radius = 20; // Меньший радиус
+			
+			// Разные типы врагов для разнообразия
+			const enemyTypes = ["skeleton", "ghost", "vampire"];
 
-			print(`[GameService] 🧪 Спавним ${count} тестовых врагов по кругу...`);
+			print(`[GameService] 🧪 Спавним ${count} тестовых врагов...`);
 
 			for (let i = 0; i < count; i++) {
 				const angle = (i / count) * math.pi * 2;
 				const offset = new Vector3(math.cos(angle) * radius, 5, math.sin(angle) * radius);
 				const pos = playerPos.add(offset);
-
-				const enemy = this.enemyService.spawnSkeleton(pos);
+				
+				const enemyType = enemyTypes[i % enemyTypes.size()];
+				const enemy = this.enemyService.spawnEnemy(enemyType, pos);
 				
 				if (enemy) {
 					const humanoid = enemy.FindFirstChildOfClass("Humanoid") as Humanoid;
 					if (humanoid) {
-						humanoid.MaxHealth = 100;
-						humanoid.Health = 100;
+						// Уменьшаем здоровье для лёгкого старта
+						humanoid.MaxHealth = 40;
+						humanoid.Health = 40;
+						// Уменьшаем скорость врагов (медленные)
+						humanoid.WalkSpeed = 5;
 						
-						// Сетевое владение для врагов (только после добавления в Workspace)
+						// Сетевое владение для врагов
 						task.defer(() => {
 							for (const child of enemy.GetDescendants()) {
 								if (child.IsA("BasePart") && !child.Anchored) {
@@ -85,7 +92,7 @@ export class GameService implements OnStart {
 							}
 						});
 					}
-					print(`[GameService] ✅ Враг #${i+1} заспавнен`);
+					print(`[GameService] ✅ Враг #${i+1} (${enemyType}) заспавнен`);
 				}
 			}
 			print(`[GameService] 🎯 Все ${count} врагов готовы к бою!`);

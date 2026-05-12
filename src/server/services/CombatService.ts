@@ -15,6 +15,9 @@ export class CombatService implements OnStart {
 	private events = CombatNetworking.createServer({});
 	private components!: Components;
 
+	// Базовый урон игрока
+	private readonly BASE_DAMAGE = 50; // Было 10, теперь 50 (увеличено в 5 раз)
+
 	constructor(private readonly enemyService: EnemyService) {}
 
 	onStart() {
@@ -52,7 +55,6 @@ export class CombatService implements OnStart {
 			
 			if (!target) continue;
 			
-			// Исправлено: убран второй аргумент
 			const life = this.components.getComponent<LifeComponent>(target.instance);
 			if (!life || !life.isAlive()) continue;
 			
@@ -60,12 +62,11 @@ export class CombatService implements OnStart {
 			if (!enemyModel.Parent) continue;
 
 			this.performAttack(player, target);
-			state.nextAttackTime = now + 1.0;
+			state.nextAttackTime = now + 0.8; // Немного уменьшил кулдаун
 		}
 	}
 
 	private performAttack(player: Player, target: EnemyComponent) {
-		// Исправлено: убран второй аргумент
 		const life = this.components.getComponent<LifeComponent>(target.instance);
 		const character = player.Character;
 		if (!life || !life.isAlive() || !character) return;
@@ -73,7 +74,7 @@ export class CombatService implements OnStart {
 		const startPos = character.GetPivot().Position.add(new Vector3(0, 3, 0));
 		const targetPos = target.instance.GetPivot().Position;
 		const distance = startPos.sub(targetPos).Magnitude;
-		const speed = 40; 
+		const speed = 60; // Увеличил скорость снаряда
 		const travelTime = distance / speed;
 
 		const projectileModel = new Instance("Model");
@@ -100,13 +101,13 @@ export class CombatService implements OnStart {
 		task.delay(travelTime, () => {
 			if (!projectileModel.Parent) return;
 			
-			// Исправлено: убран второй аргумент
 			const currentLife = this.components.getComponent<LifeComponent>(target.instance);
 			if (currentLife && target.instance.Parent && currentLife.isAlive()) {
-				currentLife.takeDamage(10);
+				// Урон увеличен в 5 раз: 10 → 50
+				currentLife.takeDamage(this.BASE_DAMAGE);
 				
 				this.enemyService.recordAttackOnEnemy(target.instance, player.UserId);
-				print(`[Combat] 💥 Попадание! 10 урона по ${target.instance.Name}`);
+				print(`[Combat] 💥 Попадание! ${this.BASE_DAMAGE} урона по ${target.instance.Name}`);
 			}
 			
 			projectileModel.Destroy();

@@ -5,59 +5,44 @@ import { Workspace, HttpService, ReplicatedStorage, Players, CollectionService }
 import { EnemyPresets, EnemyData } from "shared/types/EnemyTypes";
 import { EnemyComponent } from "server/components/EnemyComponent";
 import { LifeComponent } from "server/components/LifeComponent";
-import { CorpseComponent } from "server/components/CorpseComponent";
 import { ProgressionService } from "./ProgressionService";
+import { CorpseManagerService } from "./CorpseManagerService";
 
 @Service({})
 export class EnemyService implements OnStart {
-	private skeletonTemplate?: Model;
+	private templates = new Map<string, Model>();
 	private components = Dependency<Components>();
 	private pendingAttacks = new Map<Instance, number>();
-	private templateReady = false; // Флаг готовности
+	private progressionService!: ProgressionService;
+	private corpseManager!: CorpseManagerService;
+	private templatesReady = false;
 
 	onStart() {
 		print("[EnemyService] 👹 Система врагов запущена");
-		this.loadTemplates(); // Убираем task.wait(1)
+		this.progressionService = Dependency<ProgressionService>();
+		this.corpseManager = Dependency<CorpseManagerService>();
+		this.loadTemplates();
 	}
 
-	// =========================
-	// 📦 ЗАГРУЗКА ШАБЛОНОВ
-	// =========================
 	private loadTemplates() {
-		const enemiesFolder = Workspace.FindFirstChild("World")?.FindFirstChild("Enemies") as Folder;
-		let template = enemiesFolder?.FindFirstChild("SkeletonWarrior") as Model;
-
-		if (!template) {
-			template = Workspace.FindFirstChild("SkeletonWarrior") as Model;
+		for (const [key, preset] of pairs(EnemyPresets)) {
+			const template = ReplicatedStorage.FindFirstChild(preset.modelName) as Model;
+			if (template) {
+				this.templates.set(key, template);
+				print(`[EnemyService] ✅ Загружен: ${key} (${preset.modelName})`);
+			}
 		}
-
-		if (!template) {
-			warn("[EnemyService] ❌ SkeletonWarrior НЕ найден");
-			return;
-		}
-
-		this.skeletonTemplate = template.Clone();
-		this.skeletonTemplate.Parent = ReplicatedStorage;
-		this.templateReady = true; // Шаблон загружен
-		print("[EnemyService] ✅ Шаблон SkeletonWarrior загружен");
+		this.templatesReady = true;
 	}
 
-	// =========================
-	// 🎯 ПОИСК ВРАГА
-	// =========================
 	public getNearestEnemy(position: Vector3, maxDistance: number): EnemyComponent | undefined {
 		let nearest: EnemyComponent | undefined;
 		let nearestDist = maxDistance;
-
-		const enemies = this.components.getAllComponents<EnemyComponent>(EnemyComponent);
-
-		for (const enemy of enemies) {
+		for (const enemy of this.components.getAllComponents<EnemyComponent>(EnemyComponent)) {
 			const life = this.components.getComponent<LifeComponent>(enemy.instance);
-			if (!life || !life.isAlive()) continue;
-
+			if (!life?.isAlive()) continue;
 			const root = enemy.instance.FindFirstChild("HumanoidRootPart") as BasePart;
 			if (!root) continue;
-
 			const dist = root.Position.sub(position).Magnitude;
 			if (dist < nearestDist) {
 				nearestDist = dist;
@@ -67,9 +52,6 @@ export class EnemyService implements OnStart {
 		return nearest;
 	}
 
-	// =========================
-	// 📝 ЗАПИСЬ АТАКИ (ДЛЯ НАГРАДЫ)
-	// =========================
 	public recordAttackOnEnemy(enemy: Instance, playerUserId: number) {
 		this.pendingAttacks.set(enemy, playerUserId);
 	}
@@ -82,87 +64,59 @@ export class EnemyService implements OnStart {
 		this.pendingAttacks.delete(enemy);
 	}
 
-	// =========================
-	// 🧟 СПАВН ВРАГА
-	// =========================
-	public spawnSkeleton(position: Vector3): Model | undefined {
-		if (!this.templateReady || !this.skeletonTemplate) {
-			warn("[EnemyService] ❌ Шаблон ещё не загружен");
-			return;
-		}
+	public spawnEnemy(enemyType: string, position: Vector3): Model | undefined {
+		if (!this.templatesReady) return;
+		const preset = EnemyPresets[enemyType];
+		const template = this.templates.get(enemyType);
+		if (!preset || !template) return;
 
-		const preset = EnemyPresets.skeleton;
-		const model = this.skeletonTemplate.Clone();
-
-		const id = HttpService.GenerateGUID(false);
-		model.Name = `${preset.modelName}_${id.sub(1, 6)}`;
+		const model = template.Clone();
+		model.Name = `${preset.modelName}_${HttpService.GenerateGUID(false).sub(1, 6)}`;
 
 		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
 		const root = model.FindFirstChild("HumanoidRootPart") as BasePart;
-
 		if (!humanoid || !root) {
 			model.Destroy();
-			warn("[EnemyService] ❌ Некорректная модель врага");
 			return;
 		}
 
-		// ECS теги
 		CollectionService.AddTag(model, "Enemy");
 		CollectionService.AddTag(model, "HasHealth");
 
-		// Статы
 		humanoid.MaxHealth = preset.maxHealth;
 		humanoid.Health = preset.health;
 		humanoid.WalkSpeed = preset.walkSpeed;
-
 		model.PrimaryPart = root;
 
-		// Raycast для земли
 		const rayParams = new RaycastParams();
 		rayParams.FilterDescendantsInstances = [model];
-		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
-		
-		const rayOrigin = position.add(new Vector3(0, 10, 0));
-		const rayDirection = new Vector3(0, -20, 0);
-		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
-		
-		const finalPos = rayResult 
-			? new Vector3(position.X, rayResult.Position.Y + 2.5, position.Z)
-			: position;
-
+		const rayResult = Workspace.Raycast(position.add(new Vector3(0, 10, 0)), new Vector3(0, -25, 0), rayParams);
+		const finalPos = rayResult ? new Vector3(position.X, rayResult.Position.Y + 2.5, position.Z) : position;
 		model.PivotTo(new CFrame(finalPos));
+		model.Parent = Workspace;
+		model.SetAttribute("EnemyType", enemyType);
+		model.SetAttribute("ProcessingDeath", false);
 
-		const folder = Workspace.FindFirstChild("World")?.FindFirstChild("Enemies") as Folder;
-		model.Parent = folder ?? Workspace;
-
-		// AI
 		this.startEnemyAI(model, humanoid, root, preset);
-
-		// Смерть
-		humanoid.Died.Connect(() => this.onEnemyDeath(model, preset.modelName));
-
+		humanoid.Died.Connect(() => this.onEnemyDeath(model, enemyType));
 		return model;
 	}
 
-	// =========================
-	// 🤖 AI
-	// =========================
 	private startEnemyAI(model: Model, humanoid: Humanoid, root: BasePart, preset: EnemyData) {
 		let lastAttack = 0;
 		const cooldown = 1 / preset.attackSpeed;
 
 		task.spawn(() => {
-			while (model.Parent && humanoid.Health > 0) {
+			while (model.Parent === Workspace && humanoid.Health > 0) {
 				task.wait(0.25);
-
 				let target: Model | undefined;
 				let nearestDist = 50;
 
+				// Ищем игроков
 				for (const player of Players.GetPlayers()) {
 					const char = player.Character;
-					const pRoot = char?.FindFirstChild("HumanoidRootPart") as BasePart;
+					const pRoot = char?.PrimaryPart;
 					if (!char || !pRoot) continue;
-
 					const dist = root.Position.sub(pRoot.Position).Magnitude;
 					if (dist < nearestDist) {
 						nearestDist = dist;
@@ -170,9 +124,19 @@ export class EnemyService implements OnStart {
 					}
 				}
 
-				if (!target) continue;
-				const targetRoot = target.PrimaryPart;
-				if (!targetRoot) continue;
+				// Ищем союзников (Summon)
+				for (const summon of CollectionService.GetTagged("Summon")) {
+					const summonModel = summon as Model;
+					const sRoot = summonModel.PrimaryPart;
+					if (!sRoot || !summonModel.Parent) continue;
+					const dist = root.Position.sub(sRoot.Position).Magnitude;
+					if (dist < nearestDist) {
+						nearestDist = dist;
+						target = summonModel;
+					}
+				}
+
+				if (!target || !target.PrimaryPart) continue;
 
 				if (nearestDist <= preset.attackRange) {
 					humanoid.MoveTo(root.Position);
@@ -180,110 +144,32 @@ export class EnemyService implements OnStart {
 					if (now - lastAttack >= cooldown) {
 						lastAttack = now;
 						const life = this.components.getComponent<LifeComponent>(target);
-						if (life) {
-							life.takeDamage(preset.damage);
-						}
+						life?.takeDamage(preset.damage);
 					}
 				} else {
-					humanoid.MoveTo(targetRoot.Position);
+					humanoid.MoveTo(target.PrimaryPart.Position);
 				}
 			}
 		});
 	}
 
-	// =========================
-	// 💀 СМЕРТЬ ВРАГА → ТРУП
-	// =========================
-	private onEnemyDeath(model: Model, templateId: string) {
-		print(`[EnemyService] 💀 ${model.Name} убит → превращаем в труп`);
+	private onEnemyDeath(model: Model, enemyType: string) {
+		if (model.GetAttribute("ProcessingDeath") === true) return;
+		model.SetAttribute("ProcessingDeath", true);
 
-		// 💰 Начисляем опыт убийце
-		const killerUserId = this.getKillerUserId(model);
-		if (killerUserId) {
-			const killer = Players.GetPlayerByUserId(killerUserId);
+		const killerId = this.getKillerUserId(model);
+		if (killerId) {
+			const killer = Players.GetPlayerByUserId(killerId);
 			if (killer) {
-				try {
-					const progression = Dependency<ProgressionService>();
-					progression.grantExperience(killer, 50);
-					print(`[EnemyService] ✨ ${killer.Name} получил 50 опыта за убийство`);
-				} catch (e) {
-					warn("[EnemyService] ProgressionService не найден, опыт не начислен");
-				}
+				this.progressionService.grantExperience(killer, 50);
+				print(`[EnemyService] ✨ ${killer.Name} получил 50 опыта`);
 			}
 		}
 		this.clearAttacks(model);
 
-		// Сохраняем позицию
 		const originalPos = model.GetPivot().Position;
-
-		// Удаляем боевые теги
 		CollectionService.RemoveTag(model, "Enemy");
 		CollectionService.RemoveTag(model, "HasHealth");
-
-		// Атрибуты для трупа
-		model.SetAttribute("templateId", templateId);
-		model.SetAttribute("spawnTime", os.clock());
-
-		// Тег трупа
-		CollectionService.AddTag(model, "Corpse");
-
-		// Превращаем в лежащий труп
-		this.transformToCorpse(model, originalPos);
-
-		// Отключаем Humanoid
-		const humanoid = model.FindFirstChildOfClass("Humanoid") as Humanoid;
-		if (humanoid) {
-			humanoid.BreakJointsOnDeath = false;
-			humanoid.ChangeState(Enum.HumanoidStateType.Dead);
-		}
-	}
-
-	// =========================
-	// 🪦 ТРАНСФОРМАЦИЯ В ТРУП
-	// =========================
-	private transformToCorpse(model: Model, spawnPos: Vector3) {
-		const rayParams = new RaycastParams();
-		rayParams.FilterDescendantsInstances = [model];
-		rayParams.FilterType = Enum.RaycastFilterType.Exclude;
-		
-		const rayOrigin = spawnPos.add(new Vector3(0, 5, 0));
-		const rayDirection = new Vector3(0, -15, 0);
-		const rayResult = Workspace.Raycast(rayOrigin, rayDirection, rayParams);
-		
-		const groundY = rayResult ? rayResult.Position.Y + 0.5 : spawnPos.Y - 2;
-
-		// Исправлено: math.random -> прямой вызов, math.rad -> ручной перевод
-		const randomRotY = math.random() * math.pi * 2;
-		const fallAngleDeg = 85 + math.random() * 10;
-		const fallAngleRad = fallAngleDeg * math.pi / 180;
-		
-		model.PivotTo(
-			new CFrame(new Vector3(spawnPos.X, groundY, spawnPos.Z))
-				.mul(CFrame.Angles(0, randomRotY, fallAngleRad))
-		);
-
-		for (const child of model.GetDescendants()) {
-			if (child.IsA("BasePart")) {
-				child.Color = Color3.fromRGB(65, 65, 65);
-				child.Material = Enum.Material.Concrete;
-				child.Anchored = true;
-				child.CanCollide = false;
-			}
-			if (child.IsA("ParticleEmitter") || child.IsA("Light") || child.IsA("Sound")) {
-				child.Destroy();
-			}
-		}
-
-		const marker = new Instance("Part");
-		marker.Name = "CorpseMarker";
-		marker.Shape = Enum.PartType.Cylinder;
-		marker.Size = new Vector3(0.2, 0.8, 0.2);
-		marker.Color = Color3.fromRGB(100, 150, 255);
-		marker.Material = Enum.Material.Neon;
-		marker.Anchored = true;
-		marker.CanCollide = false;
-		marker.Transparency = 0.3;
-		marker.CFrame = model.GetPivot().add(new Vector3(0, 2.5, 0));
-		marker.Parent = model;
+		this.corpseManager.createGrave(model, enemyType, originalPos);
 	}
 }

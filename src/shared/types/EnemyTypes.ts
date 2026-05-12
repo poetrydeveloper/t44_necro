@@ -12,11 +12,13 @@ export interface EnemyData {
     rewardGold: number;
     rewardExp: number;
     modelName: string;
+    soulWeight?: number;  // Вес души для коллекции
+    tier?: number;        // Редкость (1-5)
 }
 
 export interface EnemySpawnInfo {
     enemyType: string;
-    position: Vector3; // Используем встроенный тип Roblox
+    position: Vector3;
     level: number;
 }
 
@@ -32,7 +34,9 @@ export const EnemyPresets: Record<string, EnemyData> = {
         walkSpeed: 12,
         rewardGold: 10,
         rewardExp: 20,
-        modelName: "SkeletonModel",
+        modelName: "Zombie",  // Используем Zombie модель
+        soulWeight: 10,
+        tier: 1,
     },
     ghost: {
         id: "ghost",
@@ -45,6 +49,38 @@ export const EnemyPresets: Record<string, EnemyData> = {
         walkSpeed: 14,
         rewardGold: 15,
         rewardExp: 25,
-        modelName: "GhostModel",
+        modelName: "Ghost",
+        soulWeight: 15,
+        tier: 2,
+    },
+    vampire: {
+        id: "vampire",
+        name: "Вампир",
+        health: 70,
+        maxHealth: 70,
+        damage: 15,
+        attackRange: 8,
+        attackSpeed: 1.3,
+        walkSpeed: 11,
+        rewardGold: 25,
+        rewardExp: 40,
+        modelName: "Vampire",
+        soulWeight: 25,
+        tier: 3,
+    },
+    zombie: {
+        id: "zombie",
+        name: "Зомби",
+        health: 60,
+        maxHealth: 60,
+        damage: 12,
+        attackRange: 7,
+        attackSpeed: 1.4,
+        walkSpeed: 10,
+        rewardGold: 20,
+        rewardExp: 35,
+        modelName: "Drooling Zombie",
+        soulWeight: 20,
+        tier: 2,
     },
 };
